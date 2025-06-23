@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, Plus, CheckCircle, Clock, Calendar, Paperclip, GripVertical } from "lucide-react"
+import { ArrowLeft, Plus, CheckCircle, Clock, Calendar, Paperclip, GripVertical, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import CommentSection from "./comment-section"
+import FileManager from "@/components/files/file-manager"
 
 interface User {
   _id: string
@@ -62,6 +63,15 @@ export default function SubtaskManagementContent({ user, task, project }: Subtas
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
+  const fileManagerRef = useRef(null)
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}/${day}/${year}`
+  }
 
   useEffect(() => {
     loadSubtasks()
@@ -248,7 +258,7 @@ export default function SubtaskManagementContent({ user, task, project }: Subtas
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Due Date</p>
-                <p className="text-sm font-medium text-gray-900">{new Date(task.dueDate).toLocaleDateString()}</p>
+                <p className="text-sm font-medium text-gray-900">{formatDate(task.dueDate)}</p>
               </div>
               <Calendar className="h-8 w-8 text-purple-600" />
             </div>
@@ -377,7 +387,7 @@ export default function SubtaskManagementContent({ user, task, project }: Subtas
                               <span className="mx-2">•</span>
                             </>
                           )}
-                          <span>Created {new Date(subtask.createdAt).toLocaleDateString()}</span>
+                          <span>Created {formatDate(subtask.createdAt)}</span>
                         </div>
                       </div>
                     </div>
@@ -393,22 +403,28 @@ export default function SubtaskManagementContent({ user, task, project }: Subtas
           <CommentSection taskId={task._id} user={user} />
 
           <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center">
                 <Paperclip className="h-5 w-5 mr-2" />
-                Attachments
-              </CardTitle>
+                <CardTitle>Attachments</CardTitle>
+              </div>
+              <Button
+                className="bg-black hover:bg-neutral-800 rounded-full p-2 h-9 w-9 flex items-center justify-center"
+                size="icon"
+                aria-label="Add Attachment"
+                onClick={() => fileManagerRef.current?.triggerUpload()}
+              >
+                <Upload className="h-5 w-5 text-white" />
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <Paperclip className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No attachments</h3>
-                <p className="text-gray-500 mb-4">Upload files to share with your team</p>
-                <Button variant="outline">
-                  <Paperclip className="h-4 w-4 mr-2" />
-                  Upload File
-                </Button>
-              </div>
+              <FileManager
+                ref={fileManagerRef}
+                taskId={task._id}
+                category="attachments"
+                allowUpload={true}
+                minimal={true}
+              />
             </CardContent>
           </Card>
         </div>

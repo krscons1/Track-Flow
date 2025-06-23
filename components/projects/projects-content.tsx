@@ -10,6 +10,7 @@ import { FolderOpen, Plus, Search, Calendar, Clock } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import ProjectActionsDropdown from "./project-actions-dropdown"
+import { useRouter } from "next/navigation"
 
 interface User {
   _id: string
@@ -45,7 +46,16 @@ export default function ProjectsContent({ user }: ProjectsContentProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const router = useRouter()
   const { toast } = useToast()
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}/${day}/${year}`
+  }
 
   useEffect(() => {
     loadProjects()
@@ -302,7 +312,7 @@ export default function ProjectsContent({ user }: ProjectsContentProps) {
                     <div className="flex items-center text-sm text-gray-500">
                       <Calendar className="h-4 w-4 mr-2" />
                       <span className={isOverdue(project.dueDate) ? "text-red-600 font-medium" : ""}>
-                        Due: {new Date(project.dueDate).toLocaleDateString()}
+                        Due: {formatDate(project.dueDate)}
                       </span>
                       {isOverdue(project.dueDate) && <Clock className="h-4 w-4 ml-2 text-red-600" />}
                     </div>

@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/server-only/auth"
 import { redirect } from "next/navigation"
 import { ProjectModel } from "@/lib/server-only/models/Project"
 import { TaskModel } from "@/lib/server-only/models/Task"
+import { UserModel } from "@/lib/server-only/models/User"
 import ProjectDetailContent from "@/components/projects/project-detail-content"
 
 interface ProjectPageProps {
@@ -24,9 +25,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       redirect("/projects")
     }
 
-    const tasks = await TaskModel.findByProject(params.id)
+    const projectWithStringId = { ...project, _id: project._id?.toString?.() || project._id }
 
-    return <ProjectDetailContent user={user} project={project} tasks={tasks} />
+    const tasks = await TaskModel.findByProject(params.id)
+    const users = await UserModel.findAll()
+
+    return <ProjectDetailContent user={user} project={projectWithStringId} tasks={tasks} users={users} />
   } catch (error) {
     console.error("Error loading project:", error)
     redirect("/projects")

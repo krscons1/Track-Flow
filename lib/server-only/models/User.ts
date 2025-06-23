@@ -188,4 +188,18 @@ export class UserModel {
       throw new Error(`Failed to delete user: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
+
+  static async findManyByIds(ids: string[]): Promise<User[]> {
+    try {
+      if (!ids || ids.length === 0) return [];
+      const objectIds = ids.filter(id => id && id.length === 24).map(id => new ObjectId(id));
+      if (objectIds.length === 0) return [];
+      const db = await getDatabase();
+      const users = (await db.collection("users").find({ _id: { $in: objectIds } }).toArray()) as User[];
+      return users;
+    } catch (error) {
+      console.error("❌ Find many users by IDs error:", error);
+      throw new Error(`Failed to find users by IDs: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  }
 }

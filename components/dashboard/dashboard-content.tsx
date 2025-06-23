@@ -22,16 +22,28 @@ interface DashboardContentProps {
 }
 
 export default function DashboardContent({ user }: DashboardContentProps) {
+  const [projects, setProjects] = useState<Project[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [stats, setStats] = useState({
     totalProjects: 0,
+    activeProjects: 0,
     totalTasks: 0,
-    pendingTasks: 0,
     completedTasks: 0,
-    teamMembers: 0,
+    totalHours: 0,
+    thisWeekHours: 0,
   })
   const [recentProjects, setRecentProjects] = useState([])
   const [myTasks, setMyTasks] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}/${day}/${year}`
+  }
 
   useEffect(() => {
     loadDashboardData()
@@ -58,10 +70,18 @@ export default function DashboardContent({ user }: DashboardContentProps) {
 
       setStats({
         totalProjects: projects.length,
+        activeProjects: projects.filter((p: any) => p.status === "active").length,
         totalTasks: tasks.length,
-        pendingTasks: tasks.filter((t: any) => t.status !== "completed").length,
         completedTasks: tasks.filter((t: any) => t.status === "completed").length,
-        teamMembers: users.length,
+        totalHours: timeEntries.reduce((total, entry) => total + entry.hours, 0),
+        thisWeekHours: timeEntries.filter((entry) => {
+          const entryDate = new Date(entry.date)
+          const startOfWeek = new Date()
+          startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+          const endOfWeek = new Date(startOfWeek)
+          endOfWeek.setDate(endOfWeek.getDate() + 7)
+          return entryDate >= startOfWeek && entryDate < endOfWeek
+        }).reduce((total, entry) => total + entry.hours, 0),
       })
 
       setRecentProjects(projects.slice(0, 5))
@@ -147,18 +167,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
 
         <Card className="hover-lift bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium opacity-90">Pending Tasks</CardTitle>
-            <Clock className="h-5 w-5 opacity-80" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.pendingTasks}</div>
-            <p className="text-xs opacity-80 mt-1">Need attention</p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-lift bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium opacity-90">Completed</CardTitle>
+            <CardTitle className="text-sm font-medium opacity-90">Completed Tasks</CardTitle>
             <Target className="h-5 w-5 opacity-80" />
           </CardHeader>
           <CardContent>
@@ -167,14 +176,25 @@ export default function DashboardContent({ user }: DashboardContentProps) {
           </CardContent>
         </Card>
 
-        <Card className="hover-lift bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0 shadow-lg">
+        <Card className="hover-lift bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium opacity-90">Team Members</CardTitle>
-            <Users className="h-5 w-5 opacity-80" />
+            <CardTitle className="text-sm font-medium opacity-90">Total Hours</CardTitle>
+            <Clock className="h-5 w-5 opacity-80" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.teamMembers}</div>
-            <p className="text-xs opacity-80 mt-1">Active members</p>
+            <div className="text-3xl font-bold">{stats.totalHours.toFixed(2)}</div>
+            <p className="text-xs opacity-80 mt-1">Hours worked</p>
+          </CardContent>
+        </Card>
+
+        <Card className="hover-lift bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium opacity-90">This Week Hours</CardTitle>
+            <Clock className="h-5 w-5 opacity-80" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{stats.thisWeekHours.toFixed(2)}</div>
+            <p className="text-xs opacity-80 mt-1">Hours worked this week</p>
           </CardContent>
         </Card>
       </div>
@@ -225,7 +245,7 @@ export default function DashboardContent({ user }: DashboardContentProps) {
                       <p className="text-sm text-gray-500 mt-1">{project.description}</p>
                       <div className="flex items-center mt-2 text-xs text-gray-400">
                         <Calendar className="h-3 w-3 mr-1" />
-                        Due: {new Date(project.dueDate).toLocaleDateString()}
+                        Due: {formatDate(project.dueDate)}
                       </div>
                     </div>
                     <Badge

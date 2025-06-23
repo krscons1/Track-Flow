@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,59 +15,53 @@ import { useToast } from "@/hooks/use-toast"
 interface FileItem {
   id: string
   name: string
+  fileName: string
   type: string
   size: number
   uploadedBy: string
   uploadedAt: string
   category: "avatars" | "attachments" | "reports"
   url: string
+  uploaderName?: string
 }
 
 interface FileManagerProps {
   projectId?: string
+  teamId?: string
   taskId?: string
   category: "avatars" | "attachments" | "reports"
   allowUpload?: boolean
+  minimal?: boolean
 }
 
-export default function FileManager({ projectId, taskId, category, allowUpload = true }: FileManagerProps) {
-  const [files, setFiles] = useState<FileItem[]>([
-    {
-      id: "1",
-      name: "project-requirements.pdf",
-      type: "application/pdf",
-      size: 2048576,
-      uploadedBy: "John Doe",
-      uploadedAt: new Date().toISOString(),
-      category: "attachments",
-      url: "/api/files/attachments/project-requirements.pdf",
-    },
-    {
-      id: "2",
-      name: "wireframes.png",
-      type: "image/png",
-      size: 1024000,
-      uploadedBy: "Jane Smith",
-      uploadedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      category: "attachments",
-      url: "/api/files/attachments/wireframes.png",
-    },
-    {
-      id: "3",
-      name: "time-report.pdf",
-      type: "application/pdf",
-      size: 512000,
-      uploadedBy: "System",
-      uploadedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      category: "reports",
-      url: "/api/files/reports/time-report.pdf",
-    },
-  ])
+const FileManager = forwardRef(function FileManager({ projectId, teamId, taskId, category, allowUpload = true, minimal = false }: FileManagerProps, ref) {
+  const [files, setFiles] = useState<FileItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
+
+  const fetchFiles = async () => {
+    if (!projectId && !teamId) return;
+    try {
+      let url = "/api/files/list?"
+      if (teamId) url += `teamId=${teamId}`
+      else if (projectId) url += `projectId=${projectId}`
+      const res = await fetch(url)
+      if (res.ok) {
+        const data = await res.json()
+        setFiles(data.files || [])
+      }
+    } catch (e) {
+      // Optionally handle error
+    }
+  }
+
+  useEffect(() => {
+    fetchFiles()
+  }, [projectId, teamId])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files
@@ -97,8 +91,9 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
         const formData = new FormData()
         formData.append("file", file)
         formData.append("category", category)
-        formData.append("projectId", projectId || "")
-        formData.append("taskId", taskId || "")
+        if (projectId) formData.append("projectId", projectId)
+        if (teamId) formData.append("teamId", teamId)
+        if (taskId) formData.append("taskId", taskId)
 
         // Simulate upload progress
         const progressInterval = setInterval(() => {
@@ -121,20 +116,23 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
           const uploadedFile = await response.json()
           const newFile: FileItem = {
             id: uploadedFile.id,
-            name: file.name,
-            type: file.type,
-            size: file.size,
+            name: uploadedFile.name,
+            fileName: uploadedFile.fileName,
+            type: uploadedFile.type,
+            size: uploadedFile.size,
             uploadedBy: "Current User",
             uploadedAt: new Date().toISOString(),
             category,
             url: uploadedFile.url,
+            uploaderName: uploadedFile.uploaderName,
           }
 
           setFiles((prev) => [newFile, ...prev])
           toast({
             title: "Success",
-            description: `${file.name} uploaded successfully`,
+            description: `${uploadedFile.name} uploaded successfully`,
           })
+          await fetchFiles()
         } else {
           throw new Error("Upload failed")
         }
@@ -201,18 +199,19 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
     return { valid: true }
   }
 
-  const deleteFile = async (fileId: string) => {
+  const deleteFile = async (fileId: string, fileCategory?: string, fileName?: string) => {
     try {
-      const response = await fetch(`/api/files/${fileId}`, {
+      if (!fileCategory || !fileName) return;
+      const response = await fetch(`/api/files/${fileCategory}/${fileName}`, {
         method: "DELETE",
       })
-
       if (response.ok) {
         setFiles(files.filter((f) => f.id !== fileId))
         toast({
           title: "Success",
           description: "File deleted successfully",
         })
+        await fetchFiles()
       }
     } catch (error) {
       toast({
@@ -232,8 +231,8 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
     document.body.removeChild(link)
   }
 
-  const getFileIcon = (type: string) => {
-    if (type.startsWith("image/")) {
+  const getFileIcon = (type: string | undefined) => {
+    if (typeof type === "string" && type.startsWith("image/")) {
       return <ImageIcon className="h-5 w-5 text-blue-600" />
     } else if (type === "application/pdf") {
       return <FileText className="h-5 w-5 text-red-600" />
@@ -262,8 +261,110 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
   }
 
   const filteredFiles = files.filter(
-    (file) => file.name.toLowerCase().includes(searchQuery.toLowerCase()) && file.category === category,
+    (file) =>
+      (searchQuery === "" || file.name?.toLowerCase?.().includes(searchQuery.toLowerCase())) &&
+      file.category === category
   )
+
+  const deleteAllFiles = async () => {
+    if (!projectId && !teamId) return;
+    try {
+      let url = "/api/files/list?"
+      if (teamId) url += `teamId=${teamId}`
+      else if (projectId) url += `projectId=${projectId}`
+      const res = await fetch(url, { method: "DELETE" })
+      if (res.ok) {
+        toast({ title: "Success", description: "All files deleted." })
+        await fetchFiles()
+      } else {
+        toast({ title: "Error", description: "Failed to delete all files.", variant: "destructive" })
+      }
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete all files.", variant: "destructive" })
+    }
+    setShowDeleteAllConfirm(false)
+  }
+
+  useImperativeHandle(ref, () => ({
+    triggerUpload: () => {
+      fileInputRef.current?.click();
+    }
+  }));
+
+  if (minimal) {
+    return (
+      <div>
+        {/* Upload button is now controlled by parent via ref */}
+        {/* Upload Progress */}
+        {Object.keys(uploadProgress).length > 0 && isUploading && (
+          <div className="space-y-2 mb-4">
+            <div className="flex justify-between text-sm">
+              <span>Uploading...</span>
+              <span>{
+                Math.round(
+                  Object.values(uploadProgress).reduce((a, b) => a + b, 0) / Object.values(uploadProgress).length
+                )
+              }%</span>
+            </div>
+            <Progress value={
+              Object.values(uploadProgress).reduce((a, b) => a + b, 0) / Object.values(uploadProgress).length
+            } className="h-2" />
+          </div>
+        )}
+        {/* Files List */}
+        <div className="space-y-3">
+          {filteredFiles.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <File className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No files found</p>
+              {allowUpload && <p className="text-sm">Upload your first file to get started</p>}
+            </div>
+          ) : (
+            filteredFiles.map((file, index) => (
+              <div
+                key={file.id}
+                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors animate-fade-in shadow-sm"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <div className="flex items-center space-x-3 w-full">
+                  {getFileIcon(file.type)}
+                  <span className="font-medium text-gray-900 truncate w-full">{file.name}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => window.open(file.url, "_blank")}> <Eye className="h-4 w-4 mr-2" /> Preview </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => downloadFile(file)}> <Download className="h-4 w-4 mr-2" /> Download </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => deleteFile(file.id, file.category, file.fileName)} className="text-red-600 hover:text-red-700"> <Trash2 className="h-4 w-4 mr-2" /> Delete </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileUpload}
+          className="hidden"
+          accept={
+            category === "avatars"
+              ? "image/*"
+              : category === "reports"
+                ? ".pdf"
+                : "image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+          }
+        />
+      </div>
+    )
+  }
 
   return (
     <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
@@ -273,16 +374,27 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
             <File className="h-5 w-5 mr-2" />
             File Manager
           </CardTitle>
-          {allowUpload && (
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Files
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {allowUpload && (
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Files
+              </Button>
+            )}
+            {files.length > 0 && (
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteAllConfirm(true)}
+                disabled={isUploading}
+              >
+                Delete All Files
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -298,17 +410,19 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
         </div>
 
         {/* Upload Progress */}
-        {Object.keys(uploadProgress).length > 0 && (
+        {Object.keys(uploadProgress).length > 0 && isUploading && (
           <div className="space-y-2">
-            {Object.entries(uploadProgress).map(([fileId, progress]) => (
-              <div key={fileId} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Uploading...</span>
-                  <span>{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-            ))}
+            <div className="flex justify-between text-sm">
+              <span>Uploading...</span>
+              <span>{
+                Math.round(
+                  Object.values(uploadProgress).reduce((a, b) => a + b, 0) / Object.values(uploadProgress).length
+                )
+              }%</span>
+            </div>
+            <Progress value={
+              Object.values(uploadProgress).reduce((a, b) => a + b, 0) / Object.values(uploadProgress).length
+            } className="h-2" />
           </div>
         )}
 
@@ -334,14 +448,18 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
                       <span>{formatFileSize(file.size)}</span>
                       <span>•</span>
-                      <span>by {file.uploadedBy}</span>
+                      <span>by {file.uploaderName || "Unknown"}</span>
                       <span>•</span>
                       <span>{getTimeAgo(file.uploadedAt)}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Badge className="bg-gray-100 text-gray-800">{file.type.split("/")[1].toUpperCase()}</Badge>
+                  <Badge className="bg-gray-100 text-gray-800">{
+                    typeof file.type === "string" && file.type.includes("/")
+                      ? file.type.split("/")[1].toUpperCase()
+                      : "FILE"
+                  }</Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">
@@ -357,11 +475,7 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
                         <Download className="h-4 w-4 mr-2" />
                         Download
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Share className="h-4 w-4 mr-2" />
-                        Share
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => deleteFile(file.id)} className="text-red-600 hover:text-red-700">
+                      <DropdownMenuItem onClick={() => deleteFile(file.id, file.category, file.fileName)} className="text-red-600 hover:text-red-700">
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
@@ -388,7 +502,23 @@ export default function FileManager({ projectId, taskId, category, allowUpload =
                 : "image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
           }
         />
+
+        {/* Delete All Confirmation Dialog */}
+        {showDeleteAllConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+              <h2 className="text-lg font-semibold mb-4">Delete All Files?</h2>
+              <p className="mb-6">Are you sure you want to delete <b>all files</b>? This action cannot be undone.</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowDeleteAllConfirm(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={deleteAllFiles}>Delete All</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
-}
+})
+
+export default FileManager;

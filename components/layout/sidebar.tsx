@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -75,8 +75,23 @@ const navigation = [
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const pathname = usePathname()
   const { user, logout } = useAuth()
+
+  // Only fetch unread notifications count on initial render
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await fetch("/api/notifications?unreadOnly=1")
+        const data = await res.json()
+        if (res.ok && Array.isArray(data.notifications)) {
+          setUnreadCount(data.notifications.length)
+        }
+      } catch {}
+    }
+    fetchUnreadCount()
+  }, [])
 
   // Hide sidebar on auth pages
   const authPages = ["/auth/login", "/auth/register", "/login", "/signup", "/forgot-password"]
@@ -128,6 +143,14 @@ export default function Sidebar() {
         <nav className="flex-1 p-4 space-y-2">
           {navigation.map((item) => {
             const isActive = pathname === item.href
+            // Only show badge for notifications, use dynamic unreadCount
+            const showBadge = item.name === "Notifications" && unreadCount > 0
+            const handleClick = () => {
+              if (item.name === "Notifications") {
+                setUnreadCount(0)
+              }
+              setIsMobileOpen(false)
+            }
             return (
               <Link
                 key={item.name}
@@ -139,22 +162,22 @@ export default function Sidebar() {
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                   isCollapsed && "justify-center",
                 )}
-                onClick={() => setIsMobileOpen(false)}
+                onClick={handleClick}
               >
                 <item.icon className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
                 {!isCollapsed && (
                   <>
                     <span>{item.name}</span>
-                    {item.badge && (
+                    {showBadge && (
                       <Badge className="ml-auto bg-red-500 text-white text-xs px-1.5 py-0.5 min-w-[1.25rem] h-5 flex items-center justify-center">
-                        {item.badge}
+                        {unreadCount}
                       </Badge>
                     )}
                   </>
                 )}
-                {isCollapsed && item.badge && (
+                {isCollapsed && showBadge && (
                   <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 min-w-[1.25rem] h-5 flex items-center justify-center">
-                    {item.badge}
+                    {unreadCount}
                   </Badge>
                 )}
               </Link>

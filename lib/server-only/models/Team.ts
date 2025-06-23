@@ -54,6 +54,14 @@ export interface Notification {
   createdAt: Date
 }
 
+export interface Team {
+  _id?: ObjectId
+  name: string
+  createdBy: ObjectId
+  projectId: ObjectId
+  createdAt: Date
+}
+
 export class TeamInvitationModel {
   static async create(
     invitationData: Omit<TeamInvitation, "_id" | "createdAt" | "updatedAt">,
@@ -211,4 +219,30 @@ export class NotificationModel {
       read: false,
     })
   }
+}
+
+export const TeamModel = {
+  async create(team: Omit<Team, "_id" | "createdAt">): Promise<Team> {
+    const db = await getDatabase()
+    const now = new Date()
+    const result = await db.collection<Omit<Team, "_id">>("teams").insertOne({
+      ...team,
+      createdAt: now,
+    })
+    return { ...team, _id: result.insertedId, createdAt: now }
+  },
+
+  async findById(id: string): Promise<Team | null> {
+    const db = await getDatabase()
+    return db.collection<Team>("teams").findOne({ _id: new ObjectId(id) })
+  },
+
+  async searchByName(query: string): Promise<Team[]> {
+    const db = await getDatabase()
+    return db
+      .collection<Team>("teams")
+      .find({ name: { $regex: query, $options: "i" } })
+      .limit(10)
+      .toArray()
+  },
 }

@@ -12,12 +12,15 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { formatTimeAgo } from "@/lib/utils/date"
 import { autoUpdateProjectStatus, calculateProjectProgress } from "@/lib/utils/project"
+import FileManager from "@/components/files/file-manager"
 
 interface User {
   _id: string
   name: string
   email: string
   role: "admin" | "member"
+  avatar?: string
+  lastActive?: string
 }
 
 interface Project {
@@ -51,12 +54,14 @@ interface ProjectDetailContentProps {
   user: User
   project: Project
   tasks: Task[]
+  users: User[]
 }
 
 export default function ProjectDetailContent({
   user,
   project: initialProject,
   tasks: initialTasks,
+  users,
 }: ProjectDetailContentProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -187,6 +192,14 @@ export default function ProjectDetailContent({
   const completedTasks = tasks.filter((task) => task.status === "completed").length
   const totalTasks = tasks.length
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}/${day}/${year}`
+  }
+
   return (
     <div className="p-6 space-y-8">
       {/* Header */}
@@ -265,7 +278,7 @@ export default function ProjectDetailContent({
               <div>
                 <p className="text-sm font-medium text-gray-600">Due Date</p>
                 <p className={`text-sm font-medium ${isOverdue(project.dueDate) ? "text-red-600" : "text-gray-900"}`}>
-                  {new Date(project.dueDate).toLocaleDateString()}
+                  {formatDate(project.dueDate)}
                 </p>
                 {isOverdue(project.dueDate) && <p className="text-xs text-red-600">Overdue</p>}
               </div>
@@ -328,11 +341,11 @@ export default function ProjectDetailContent({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <h4 className="font-medium text-gray-900 mb-1">Start Date</h4>
-                      <p className="text-gray-600">{new Date(project.startDate).toLocaleDateString()}</p>
+                      <p className="text-gray-600">{formatDate(project.startDate)}</p>
                     </div>
                     <div>
                       <h4 className="font-medium text-gray-900 mb-1">Due Date</h4>
-                      <p className="text-gray-600">{new Date(project.dueDate).toLocaleDateString()}</p>
+                      <p className="text-gray-600">{formatDate(project.dueDate)}</p>
                     </div>
                   </div>
                   <div>
@@ -407,7 +420,7 @@ export default function ProjectDetailContent({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Created</span>
-                    <span className="text-sm font-medium">{new Date(project.createdAt).toLocaleDateString()}</span>
+                    <span className="text-sm font-medium">{formatDate(project.createdAt)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -444,13 +457,14 @@ export default function ProjectDetailContent({
                   {tasks.map((task) => (
                     <div
                       key={task._id}
-                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/dashboard/projects/${project._id}/tasks/${task._id}`)}
                     >
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900">{task.title}</h4>
                         <div className="flex items-center mt-2 text-sm text-gray-500">
                           <Calendar className="h-4 w-4 mr-1" />
-                          Due: {new Date(task.dueDate).toLocaleDateString()}
+                          Due: {formatDate(task.dueDate)}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -471,28 +485,61 @@ export default function ProjectDetailContent({
               <CardTitle>Team Members</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Team management coming soon</h3>
-                <p className="text-gray-500">This feature will be available in the next update</p>
-              </div>
+              {project.members.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Not assigned to a team</h3>
+                  <p className="text-gray-500">You are not assigned to any team for this project.</p>
+                </div>
+              ) : (
+                (() => {
+                  const memberUsers = users.filter(
+                    (u) => project.members.includes(u._id?.toString() || "") && u._id?.toString() !== user._id
+                  )
+                  if (memberUsers.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No other members assigned</h3>
+                        <p className="text-gray-500">You are the only member assigned to this project.</p>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                      {memberUsers.map((member) => (
+                        <div key={member._id?.toString()} className="rounded-2xl border bg-white/90 shadow-md hover:shadow-xl transition-all duration-200 p-6 flex flex-col gap-2 min-w-[260px]">
+                          <div className="flex items-center gap-4 mb-2">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-2xl shadow overflow-hidden">
+                              {member.avatar ? (
+                                <img src={member.avatar} alt={member.name} className="w-full h-full object-cover rounded-full" />
+                              ) : (
+                                member.name?.charAt(0).toUpperCase() || "U"
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-lg text-gray-900">{member.name || member.email}</span>
+                              </div>
+                              <div className="text-xs text-gray-500">{member.email}</div>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            <Badge className="bg-blue-100 text-blue-700">Member</Badge>
+                            <Badge className="bg-gray-100 text-gray-700">Last Active: {member.lastActive ? formatTimeAgo(member.lastActive) : "-"}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()
+              )}
             </CardContent>
           </Card>
         )}
 
         {activeTab === "files" && (
-          <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>Project Files</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">File management coming soon</h3>
-                <p className="text-gray-500">Upload and manage project files in the next update</p>
-              </div>
-            </CardContent>
-          </Card>
+          <FileManager projectId={project._id} category="attachments" allowUpload={true} />
         )}
       </div>
     </div>

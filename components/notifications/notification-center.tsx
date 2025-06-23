@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Check, X, Clock, MessageSquare, UserPlus, CheckCircle } from "lucide-react"
+import { Bell, Check, X, Clock, MessageSquare, UserPlus, CheckCircle, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface User {
@@ -16,7 +16,7 @@ interface User {
 
 interface Notification {
   _id: string
-  type: "task_assigned" | "deadline_reminder" | "team_invitation" | "comment_mention" | "time_approval"
+  type: "task_assigned" | "deadline_reminder" | "team_invitation" | "comment_mention" | "time_approval" | "join_request" | "join_request_response"
   title: string
   message: string
   data: any
@@ -34,64 +34,20 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "unread">("all")
   const { toast } = useToast()
+  const [processingJoinRequest, setProcessingJoinRequest] = useState<string | null>(null)
 
   useEffect(() => {
     loadNotifications()
   }, [])
 
   const loadNotifications = async () => {
+    setIsLoading(true)
     try {
-      // Mock notifications data
-      const mockNotifications: Notification[] = [
-        {
-          _id: "1",
-          type: "task_assigned",
-          title: "New Task Assigned",
-          message: "You have been assigned to 'Homepage Design' task",
-          data: { taskId: "123", projectId: "456" },
-          read: false,
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          _id: "2",
-          type: "deadline_reminder",
-          title: "Deadline Approaching",
-          message: "Task 'User Authentication' is due in 2 hours",
-          data: { taskId: "124", dueDate: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() },
-          read: false,
-          createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          _id: "3",
-          type: "comment_mention",
-          title: "You were mentioned",
-          message: "John Doe mentioned you in a comment on 'Database Setup'",
-          data: { taskId: "125", commentId: "789", mentionedBy: "John Doe" },
-          read: true,
-          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          _id: "4",
-          type: "team_invitation",
-          title: "Team Invitation",
-          message: "You have been invited to join 'Mobile App' project",
-          data: { projectId: "457", invitedBy: "Jane Smith" },
-          read: false,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          _id: "5",
-          type: "time_approval",
-          title: "Time Entry Approved",
-          message: "Your time entry for 'Bug Fixes' has been approved",
-          data: { timeEntryId: "890", approvedBy: "Team Leader" },
-          read: true,
-          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ]
-
-      setNotifications(mockNotifications)
-      setUnreadCount(mockNotifications.filter((n) => !n.read).length)
+      const response = await fetch("/api/notifications")
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Failed to load notifications")
+      setNotifications(data.notifications)
+      setUnreadCount(data.notifications.filter((n: any) => !n.read).length)
     } catch (error) {
       console.error("Failed to load notifications:", error)
       toast({
@@ -104,43 +60,82 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
     }
   }
 
-  const markAsRead = async (notificationId: string) => {
+  const handleJoinRequestResponse = async (joinRequestId: string, status: "accepted" | "declined", notificationId?: string) => {
+    setProcessingJoinRequest(joinRequestId + status)
     try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`/api/teams/join-requests/${joinRequestId}`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
       })
-
       if (response.ok) {
-        setNotifications(notifications.map((n) => (n._id === notificationId ? { ...n, read: true } : n)))
-        setUnreadCount(Math.max(0, unreadCount - 1))
+        toast({
+          title: `Request ${status}`,
+          description: `You have ${status} the join request.`,
+        })
+        if (notificationId) {
+          setNotifications((prev) => prev.map((n) =>
+            n._id === notificationId
+              ? { ...n, read: true, data: { ...n.data, joinRequestStatus: status } }
+              : n
+          ))
+          setUnreadCount((prev) => Math.max(0, prev - 1))
+        } else {
+          loadNotifications()
+        }
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to respond to join request")
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to mark notification as read",
+        description: "Failed to respond to join request",
         variant: "destructive",
       })
+    } finally {
+      setProcessingJoinRequest(null)
+    }
+  }
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.read) {
+      try {
+        const response = await fetch(`/api/notifications/${notification._id}/read`, {
+          method: "PATCH",
+        })
+        if (response.ok) {
+          setNotifications((prev) => prev.map((n) => n._id === notification._id ? { ...n, read: true } : n))
+          setUnreadCount((prev) => Math.max(0, prev - 1))
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to mark notification as read",
+          variant: "destructive",
+        })
+      }
     }
   }
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch("/api/notifications/mark-all-read", {
+      const response = await fetch("/api/notifications", {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAllRead: true }),
       })
-
       if (response.ok) {
-        setNotifications(notifications.map((n) => ({ ...n, read: true })))
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
         setUnreadCount(0)
-        toast({
-          title: "Success",
-          description: "All notifications marked as read",
-        })
+        toast({ title: "Marked all as read" })
+      } else {
+        throw new Error("Failed to mark all as read")
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to mark all notifications as read",
+        description: "Failed to mark all as read",
         variant: "destructive",
       })
     }
@@ -158,11 +153,33 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
         if (notification && !notification.read) {
           setUnreadCount(Math.max(0, unreadCount - 1))
         }
+        toast({ title: "Deleted", description: "Notification deleted." })
+      } else {
+        throw new Error("Failed to delete notification")
       }
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to delete notification",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const deleteAllNotifications = async () => {
+    try {
+      const response = await fetch("/api/notifications", { method: "DELETE" })
+      if (response.ok) {
+        setNotifications([])
+        setUnreadCount(0)
+        toast({ title: "Deleted", description: "All notifications deleted." })
+      } else {
+        throw new Error("Failed to delete all notifications")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete all notifications",
         variant: "destructive",
       })
     }
@@ -179,6 +196,10 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
       case "team_invitation":
         return <UserPlus className="h-5 w-5 text-purple-600" />
       case "time_approval":
+        return <CheckCircle className="h-5 w-5 text-green-600" />
+      case "join_request":
+        return <UserPlus className="h-5 w-5 text-purple-600" />
+      case "join_request_response":
         return <CheckCircle className="h-5 w-5 text-green-600" />
       default:
         return <Bell className="h-5 w-5 text-gray-600" />
@@ -230,6 +251,10 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
             <Check className="h-4 w-4 mr-2" />
             Mark All Read
           </Button>
+          <Button variant="destructive" onClick={deleteAllNotifications} disabled={notifications.length === 0}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete All
+          </Button>
         </div>
       </div>
 
@@ -273,6 +298,7 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                     !notification.read ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
                   }`}
                   style={{ animationDelay: `${index * 100}ms` }}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">
@@ -280,33 +306,48 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
                           <h4 className={`font-medium ${!notification.read ? "text-gray-900" : "text-gray-700"}`}>
-                            {notification.title}
+                            {notification.type === "join_request_response" ? "Team Join Request" : notification.title || "Notification"}
                           </h4>
                           {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
                         </div>
                         <p className="text-gray-600 text-sm mb-2">{notification.message}</p>
-                        <p className="text-xs text-gray-500">{getTimeAgo(notification.createdAt)}</p>
+                        <span className="text-xs text-gray-400 mt-2 block">{getTimeAgo(notification.createdAt)}</span>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {!notification.read && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => markAsRead(notification._id)}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
+                      {notification.type === "join_request" && !notification.read && !notification.data.joinRequestStatus && (
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            size="sm"
+                            className="bg-green-500 hover:bg-green-600"
+                            onClick={(e) => { e.stopPropagation(); handleJoinRequestResponse(notification.data.joinRequestId, "accepted", notification._id) }}
+                            disabled={!!processingJoinRequest}
+                          >
+                            <Check className="h-4 w-4 mr-1" /> Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={(e) => { e.stopPropagation(); handleJoinRequestResponse(notification.data.joinRequestId, "declined", notification._id) }}
+                            disabled={!!processingJoinRequest}
+                          >
+                            <X className="h-4 w-4 mr-1" /> Decline
+                          </Button>
+                        </div>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteNotification(notification._id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      {notification.type === "join_request" && notification.data.joinRequestStatus === "accepted" && (
+                        <span className="ml-4"><Badge className="bg-green-100 text-green-800">Accepted</Badge></span>
+                      )}
+                      {notification.type === "join_request" && notification.data.joinRequestStatus === "declined" && (
+                        <span className="ml-4"><Badge className="bg-red-100 text-red-800">Declined</Badge></span>
+                      )}
+                      {!notification.read && notification.type !== "join_request" && (
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); deleteNotification(notification._id) }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

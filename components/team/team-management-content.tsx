@@ -16,9 +16,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Users, Search, Plus, Mail, Crown, Clock, UserCheck, UserX, Send, CheckCircle, XCircle } from "lucide-react"
+import { Users, Search, Plus, Mail, Crown, Clock, UserCheck, UserX, Send, CheckCircle, XCircle, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useDebounce } from "@/hooks/use-debounce"
+import { useRouter } from "next/navigation"
 
 interface User {
   _id: string
@@ -67,9 +68,25 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
+  const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false)
+  const [teamSearchQuery, setTeamSearchQuery] = useState("")
+  const [teamSearchResults, setTeamSearchResults] = useState<any[]>([])
+  const [isTeamSearching, setIsTeamSearching] = useState(false)
+  const [myJoinRequests, setMyJoinRequests] = useState<any[]>([])
+  const [teamJoinRequests, setTeamJoinRequests] = useState<any[]>([])
+  const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [newTeamName, setNewTeamName] = useState("")
+  const [selectedProjectId, setSelectedProjectId] = useState("")
+  const [userProjects, setUserProjects] = useState<any[]>([])
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false)
+  const [myTeams, setMyTeams] = useState<any[]>([])
+  const [teamDescription, setTeamDescription] = useState("")
   const { toast } = useToast()
+  const router = useRouter()
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const debouncedTeamSearchQuery = useDebounce(teamSearchQuery, 300)
 
   useEffect(() => {
     loadTeamData()
@@ -83,65 +100,91 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
     }
   }, [debouncedSearchQuery])
 
+  useEffect(() => {
+    if (debouncedTeamSearchQuery.length >= 2) {
+      searchTeams(debouncedTeamSearchQuery)
+    } else {
+      setTeamSearchResults([])
+    }
+  }, [debouncedTeamSearchQuery])
+
+  // Fetch my join requests
+  useEffect(() => {
+    const fetchMyJoinRequests = async () => {
+      try {
+        const response = await fetch("/api/my-join-requests")
+        const data = await response.json()
+        if (response.ok) setMyJoinRequests(data.joinRequests || [])
+      } catch {}
+    }
+    fetchMyJoinRequests()
+  }, [])
+
+  // Fetch join requests for my team if I'm a leader
+  useEffect(() => {
+    const fetchTeamJoinRequests = async () => {
+      if (teamMembers.length > 0 && teamMembers.find((m) => m._id === user._id && m.teamRole === "team_leader")) {
+        setIsLoadingJoinRequests(true)
+        try {
+          // Assume the first team is the current team
+          const myTeam = teamMembers[0].workspaceId || teamMembers[0].teamId
+          if (!myTeam) return
+          const response = await fetch(`/api/teams/${myTeam}/join-requests`)
+          const data = await response.json()
+          if (response.ok) setTeamJoinRequests(data.joinRequests || [])
+        } catch {}
+        setIsLoadingJoinRequests(false)
+      }
+    }
+    fetchTeamJoinRequests()
+  }, [teamMembers, user._id])
+
+  // Fetch user projects for project selection
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await fetch("/api/projects")
+        const data = await response.json()
+        if (response.ok) setUserProjects(data.projects || [])
+      } catch {}
+    }
+    if (isCreateDialogOpen) fetchProjects()
+  }, [isCreateDialogOpen])
+
+  // Fetch my teams for My Teams section
+  useEffect(() => {
+    const fetchMyTeams = async () => {
+      try {
+        const response = await fetch("/api/my-teams")
+        const data = await response.json()
+        if (response.ok) setMyTeams(data.teams || [])
+      } catch {}
+    }
+    fetchMyTeams()
+  }, [])
+
   const loadTeamData = async () => {
+    setIsLoading(true)
     try {
-      // Mock team members data
-      const mockTeamMembers: TeamMember[] = [
-        {
-          _id: "1",
-          name: "John Doe",
-          email: "john@example.com",
-          teamRole: "team_leader",
-          avatar: "/placeholder.svg?height=40&width=40",
-          lastActive: new Date().toISOString(),
-          tasksCompleted: 15,
-          hoursWorked: 120,
-          status: "active",
-        },
-        {
-          _id: "2",
-          name: "Jane Smith",
-          email: "jane@example.com",
-          teamRole: "member",
-          avatar: "/placeholder.svg?height=40&width=40",
-          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          tasksCompleted: 8,
-          hoursWorked: 64,
-          status: "active",
-        },
-        {
-          _id: "3",
-          name: "Mike Johnson",
-          email: "mike@example.com",
-          teamRole: "member",
-          lastActive: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          tasksCompleted: 12,
-          hoursWorked: 96,
-          status: "inactive",
-        },
-      ]
+      const [membersResponse, invitationsResponse] = await Promise.all([
+        fetch("/api/team/members"),
+        fetch("/api/team/invitations"),
+      ])
 
-      const mockInvitations: TeamInvitation[] = [
-        {
-          _id: "1",
-          email: "sarah@example.com",
-          role: "member",
-          status: "pending",
-          invitedBy: user._id,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          _id: "2",
-          email: "alex@example.com",
-          role: "team_leader",
-          status: "pending",
-          invitedBy: user._id,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ]
+      const membersData = await membersResponse.json()
+      const invitationsData = await invitationsResponse.json()
 
-      setTeamMembers(mockTeamMembers)
-      setInvitations(mockInvitations)
+      if (membersResponse.ok) {
+        setTeamMembers(membersData.members || [])
+      } else {
+        throw new Error(membersData.error || "Failed to load team members")
+      }
+
+      if (invitationsResponse.ok) {
+        setInvitations(invitationsData.invitations || [])
+      } else {
+        throw new Error(invitationsData.error || "Failed to load invitations")
+      }
     } catch (error) {
       console.error("Failed to load team data:", error)
       toast({
@@ -175,6 +218,21 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
     }
   }
 
+  const searchTeams = async (query: string) => {
+    setIsTeamSearching(true)
+    try {
+      const response = await fetch(`/api/teams/search?q=${encodeURIComponent(query)}`)
+      const data = await response.json()
+      if (response.ok) {
+        setTeamSearchResults(data.teams || [])
+      }
+    } catch (error) {
+      setTeamSearchResults([])
+    } finally {
+      setIsTeamSearching(false)
+    }
+  }
+
   const sendInvitation = async () => {
     if (!selectedUser) return
 
@@ -195,24 +253,16 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
       if (response.ok) {
         toast({
           title: "Invitation sent",
-          description: `Invitation sent to ${selectedUser.email}`,
+          description: `An invitation has been sent to ${selectedUser.email}.`,
         })
-
-        // Add to pending invitations
-        const newInvitation: TeamInvitation = {
-          _id: Date.now().toString(),
-          email: selectedUser.email,
-          role: selectedRole,
-          status: "pending",
-          invitedBy: user._id,
-          createdAt: new Date().toISOString(),
-        }
-        setInvitations([...invitations, newInvitation])
-
+        loadTeamData() // Refresh data
         setIsInviteDialogOpen(false)
         setSelectedUser(null)
         setSearchQuery("")
         setSearchResults([])
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to send invitation")
       }
     } catch (error) {
       toast({
@@ -271,6 +321,32 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
     }
   }
 
+  const sendJoinRequest = async (teamId: string) => {
+    try {
+      const response = await fetch(`/api/teams/${teamId}/join-requests`, {
+        method: "POST",
+      })
+      if (response.ok) {
+        toast({
+          title: "Request Sent",
+          description: "Your join request has been sent to the team leader.",
+        })
+        setIsJoinDialogOpen(false)
+        setTeamSearchQuery("")
+        setTeamSearchResults([])
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to send join request")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -306,6 +382,63 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
     return `${diffInDays}d ago`
   }
 
+  const handleTeamJoinRequestResponse = async (joinRequestId: string, status: "accepted" | "declined") => {
+    try {
+      const response = await fetch(`/api/teams/join-requests/${joinRequestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      if (response.ok) {
+        toast({
+          title: `Request ${status}`,
+          description: `You have ${status} the join request.`,
+        })
+        setTeamJoinRequests((prev) => prev.filter((r) => r._id !== joinRequestId))
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to respond to join request")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to respond to join request",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleCreateTeam = async () => {
+    if (!newTeamName.trim() || !selectedProjectId) return
+    setIsCreatingTeam(true)
+    try {
+      const response = await fetch("/api/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newTeamName, projectId: selectedProjectId, description: teamDescription }),
+      })
+      if (response.ok) {
+        toast({ title: "Team Created", description: "Your team has been created." })
+        setIsCreateDialogOpen(false)
+        setNewTeamName("")
+        setSelectedProjectId("")
+        setTeamDescription("")
+        loadTeamData()
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to create team")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsCreatingTeam(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -327,106 +460,25 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
       <div className="flex items-center justify-between animate-fade-in">
         <div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Team Management 👥
+            Team Management <Users className="inline h-8 w-8 ml-2 text-purple-400" />
           </h1>
           <p className="text-gray-600 mt-2 text-lg">Manage your project team and collaborate effectively</p>
         </div>
-        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
-              <Plus className="h-4 w-4 mr-2" />
-              Invite Member
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
-              <DialogDescription>
-                Search for users and send them an invitation to join your project team.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search by name or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {isSearching && <div className="text-center py-4 text-gray-500">Searching...</div>}
-
-              {searchResults.length > 0 && (
-                <div className="max-h-48 overflow-y-auto space-y-2">
-                  {searchResults.map((user) => (
-                    <div
-                      key={user._id}
-                      className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                        selectedUser?._id === user._id
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:bg-gray-50"
-                      }`}
-                      onClick={() => setSelectedUser(user)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-sm">{user.name}</p>
-                          <p className="text-xs text-gray-500">{user.email}</p>
-                        </div>
-                      </div>
-                      {selectedUser?._id === user._id && <CheckCircle className="h-5 w-5 text-blue-600" />}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedUser && (
-                <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={selectedUser.avatar || "/placeholder.svg"} />
-                        <AvatarFallback>{selectedUser.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{selectedUser.name}</p>
-                        <p className="text-sm text-gray-600">{selectedUser.email}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Select
-                    value={selectedRole}
-                    onValueChange={(value: "team_leader" | "member") => setSelectedRole(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="team_leader">Team Leader</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={sendInvitation} disabled={!selectedUser} className="bg-blue-600 hover:bg-blue-700">
-                <Send className="h-4 w-4 mr-2" />
-                Send Invitation
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            Create a Team
+          </Button>
+          <Button
+            onClick={() => setIsJoinDialogOpen(true)}
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 hover:scale-105 transition-all duration-200 shadow"
+          >
+            Join a Team
+          </Button>
+        </div>
       </div>
 
       {/* Team Stats */}
@@ -480,104 +532,6 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
         </Card>
       </div>
 
-      {/* Team Members */}
-      <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Team Members
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {teamMembers.map((member, index) => (
-              <Card
-                key={member._id}
-                className="hover-lift transition-all duration-200 animate-scale-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={member.avatar || "/placeholder.svg"} />
-                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{member.name}</h3>
-                        <p className="text-sm text-gray-600">{member.email}</p>
-                      </div>
-                    </div>
-                    {member.teamRole === "team_leader" && <Crown className="h-5 w-5 text-yellow-500" />}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Role</span>
-                      <Badge
-                        className={
-                          member.teamRole === "team_leader"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-blue-100 text-blue-800"
-                        }
-                      >
-                        {member.teamRole === "team_leader" ? "Team Leader" : "Member"}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Status</span>
-                      <Badge className={getStatusColor(member.status)}>{member.status}</Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Last Active</span>
-                      <span className="text-sm font-medium">{getLastActiveText(member.lastActive)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-3 border-t">
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-gray-900">{member.tasksCompleted}</p>
-                        <p className="text-xs text-gray-600">Tasks</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-gray-900">{member.hoursWorked}h</p>
-                        <p className="text-xs text-gray-600">Hours</p>
-                      </div>
-                    </div>
-
-                    {user.role === "admin" && member._id !== user._id && (
-                      <div className="flex gap-2 pt-3 border-t">
-                        <Select
-                          value={member.teamRole}
-                          onValueChange={(value: "team_leader" | "member") => changeRole(member._id, value)}
-                        >
-                          <SelectTrigger className="flex-1 h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="member">Member</SelectItem>
-                            <SelectItem value="team_leader">Team Leader</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeMember(member._id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <UserX className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Pending Invitations */}
       {invitations.length > 0 && (
         <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in">
@@ -626,6 +580,162 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
           </CardContent>
         </Card>
       )}
+
+      {/* Join Team Dialog */}
+      <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+        <DialogTrigger asChild></DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Join a Team</DialogTitle>
+            <DialogDescription>Search for a team by name and send a join request.</DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Search team name..."
+            value={teamSearchQuery}
+            onChange={(e) => setTeamSearchQuery(e.target.value)}
+            className="mb-4"
+          />
+          {isTeamSearching ? (
+            <div className="text-center py-4 text-gray-500">Searching...</div>
+          ) : teamSearchResults.length === 0 && teamSearchQuery.length >= 2 ? (
+            <div className="text-center py-4 text-gray-500">No teams found.</div>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {teamSearchResults.map((team) => (
+                <div key={team._id} className="flex items-center justify-between p-2 border rounded">
+                  <div>
+                    <div className="font-medium text-gray-900">{team.name}</div>
+                    <div className="text-xs text-gray-500">Team ID: {team._id}</div>
+                  </div>
+                  <Button size="sm" onClick={() => sendJoinRequest(team._id)}>
+                    Request to Join
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* My Teams Section */}
+      <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in mb-8">
+        <CardHeader>
+          <CardTitle>My Teams</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myTeams.length === 0 ? (
+            <div className="text-center py-4 text-gray-500">You are not a member of any teams yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myTeams.map((team) => (
+                <div
+                  key={team._id}
+                  className="group cursor-pointer rounded-xl bg-white/90 border border-gray-200 shadow-md hover:shadow-xl hover:scale-[1.03] transition-all duration-200 p-6 flex flex-col gap-2"
+                  onClick={() => router.push(`/teams/${team._id}`)}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow">
+                      {team.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 font-semibold text-lg text-gray-900 group-hover:text-blue-700 transition-colors">
+                        {team.role === "team_leader" ? <Crown className="h-5 w-5 text-yellow-500" /> : <User className="h-5 w-5 text-blue-500" />}
+                        {team.name}
+                      </div>
+                      <div className="text-xs text-gray-500">Project: {team.projectTitle || team.projectId}</div>
+                      <p className="text-sm text-muted-foreground mt-1">{team.description || "No mission statement yet."}</p>
+                      <p className="text-xs text-gray-500">Last updated: {team.lastUpdated ? team.lastUpdated : "-"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">Active</span>
+                    <p className="text-xs text-gray-500 ml-2">{team.memberCount} member{team.memberCount > 1 ? "s" : ""}</p>
+                    <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                      {team.role === "team_leader" ? "Team Leader" : "Member"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* My Join Requests Section */}
+      <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in mb-8">
+        <CardHeader>
+          <CardTitle>My Join Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myJoinRequests.length === 0 ? (
+            <div className="text-center py-4 text-gray-500">You have not requested to join any teams.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myJoinRequests.map((req) => (
+                <div key={req._id} className="group rounded-xl bg-white/90 border border-gray-200 shadow-md hover:shadow-xl hover:scale-[1.03] transition-all duration-200 p-6 flex flex-col gap-2">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow">
+                      {typeof req.teamName === 'string' && req.teamName.length > 0 ? req.teamName.charAt(0).toUpperCase() : 'T'}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-lg text-gray-900 group-hover:text-blue-700 transition-colors">
+                        {req.teamName || req.teamId}
+                      </div>
+                      <div className="text-xs text-gray-500">Requested: {new Date(req.createdAt).toLocaleString()}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge className={req.status === "pending" ? "bg-yellow-100 text-yellow-800" : req.status === "accepted" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>{req.status}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Team Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogTrigger asChild></DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a Team</DialogTitle>
+            <DialogDescription>Fill in the details to create a new team and assign it to a project.</DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Team name..."
+            value={newTeamName}
+            onChange={(e) => setNewTeamName(e.target.value)}
+            className="mb-4"
+          />
+          <Input
+            placeholder="Team description or mission statement..."
+            value={teamDescription}
+            onChange={(e) => setTeamDescription(e.target.value)}
+            className="mb-4"
+          />
+          <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+            <SelectTrigger className="w-full mb-4">
+              <SelectValue placeholder="Assign to project..." />
+            </SelectTrigger>
+            <SelectContent>
+              {userProjects.map((project) => (
+                <SelectItem key={project._id} value={project._id}>
+                  {project.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTeam} disabled={isCreatingTeam || !newTeamName.trim() || !selectedProjectId} className="bg-blue-600 hover:bg-blue-700">
+              {isCreatingTeam ? "Creating..." : "Create Team"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

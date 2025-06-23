@@ -55,8 +55,20 @@ export default function TasksContent({ user }: TasksContentProps) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [assigneeFilter, setAssigneeFilter] = useState("all")
+  const [filter, setFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState("dueDate")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const router = useRouter()
   const { toast } = useToast()
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}/${day}/${year}`
+  }
 
   useEffect(() => {
     loadTasks()
@@ -332,7 +344,7 @@ export default function TasksContent({ user }: TasksContentProps) {
                             isOverdue(task.dueDate) && task.status !== "completed" ? "text-red-600 font-medium" : ""
                           }
                         >
-                          {new Date(task.dueDate).toLocaleDateString()}
+                          {formatDate(task.dueDate)}
                         </span>
                       </div>
                       <div className="flex items-center">
