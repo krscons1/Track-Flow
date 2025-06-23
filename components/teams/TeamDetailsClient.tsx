@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from "@/components/ui/textarea"
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { Input } from "@/components/ui/input"
 
 function timeAgo(dateString: string | Date | undefined): string {
   if (!dateString) return "-"
@@ -24,7 +25,7 @@ function timeAgo(dateString: string | Date | undefined): string {
   return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`
 }
 
-export default function TeamDetailsClient({ team, project, members, isLeader, leaveRequests }: any) {
+export default function TeamDetailsClient({ team, project, members, isLeader, leaveRequests, user }: any) {
   const [requests, setRequests] = useState(leaveRequests || [])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [error, setError] = useState("")
@@ -32,6 +33,8 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
   const [deleteDialog, setDeleteDialog] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState("")
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("")
+  const deleteConfirmString = `${user?.name || user?.email || "username"}@${team.name}`
 
   const handleAction = async (requestId: string, status: "accepted" | "declined") => {
     setActionLoading(requestId + status)
@@ -141,39 +144,6 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
         </CardContent>
       </Card>
 
-      {/* Team Actions Section */}
-      <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in">
-        <CardHeader>
-          <CardTitle>Team Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            {isLeader ? (
-              <>
-                <Button variant="destructive" className="w-full md:w-auto" onClick={() => setDeleteDialog(true)}>Delete Team</Button>
-                <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Delete Team</DialogTitle>
-                      <DialogDescription>
-                        Are you sure you want to delete this team? This action cannot be undone.
-                      </DialogDescription>
-                    </DialogHeader>
-                    {deleteError && <div className="text-red-500 text-sm mb-2">{deleteError}</div>}
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setDeleteDialog(false)} disabled={deleteLoading}>Cancel</Button>
-                      <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>{deleteLoading ? "Deleting..." : "Delete"}</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </>
-            ) : (
-              <LeaveTeamButton teamId={team._id?.toString()} />
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Leave Requests Management (Leader only) */}
       {isLeader && (
         <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in mb-8">
@@ -219,6 +189,50 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
           </CardContent>
         </Card>
       )}
+
+      {/* Team Actions Section (no card, just a button at the bottom) */}
+      <div className="flex flex-col items-start space-y-4 mt-8">
+        {isLeader ? (
+          <>
+            <Button variant="destructive" className="w-full md:w-auto" onClick={() => setDeleteDialog(true)}>Delete Team</Button>
+            <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete Team</DialogTitle>
+                  <DialogDescription>
+                    <div className="mb-2">This action <b>cannot be undone</b>.</div>
+                    <div className="mb-2">Please type your <span className="font-mono bg-gray-100 px-2 py-1 rounded">username@teamname</span> to confirm deletion of this team.</div>
+                    <div className="mb-2 text-xs text-gray-500">For you, type: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{deleteConfirmString}</span></div>
+                  </DialogDescription>
+                </DialogHeader>
+                <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
+                  Confirmation
+                </label>
+                <Input
+                  value={deleteConfirmInput}
+                  onChange={e => setDeleteConfirmInput(e.target.value)}
+                  placeholder={deleteConfirmString}
+                  className="mt-0"
+                  autoFocus
+                />
+                {deleteError && <div className="text-red-500 text-sm mb-2">{deleteError}</div>}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDeleteDialog(false)} disabled={deleteLoading}>Cancel</Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDelete}
+                    disabled={deleteLoading || deleteConfirmInput !== deleteConfirmString}
+                  >
+                    {deleteLoading ? "Deleting..." : "Delete"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        ) : (
+          <LeaveTeamButton teamId={team._id?.toString()} />
+        )}
+      </div>
     </div>
   )
 }
