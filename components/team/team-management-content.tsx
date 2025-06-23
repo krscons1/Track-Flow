@@ -470,7 +470,7 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
           >
             Create a Team
-          </Button>
+            </Button>
           <Button
             onClick={() => setIsJoinDialogOpen(true)}
             variant="outline"
@@ -478,7 +478,7 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
           >
             Join a Team
           </Button>
-        </div>
+            </div>
       </div>
 
       {/* Team Stats */}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import { formatTimeAgo } from "@/lib/utils/date"
 import { autoUpdateProjectStatus, calculateProjectProgress } from "@/lib/utils/project"
 import FileManager from "@/components/files/file-manager"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface User {
   _id: string
@@ -69,6 +70,7 @@ export default function ProjectDetailContent({
   const [project, setProject] = useState(initialProject)
   const [tasks, setTasks] = useState(initialTasks)
   const [activities, setActivities] = useState<any[]>([])
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
 
   useEffect(() => {
     loadActivities()
@@ -218,17 +220,25 @@ export default function ProjectDetailContent({
           </div>
         </div>
         <div className="flex gap-3">
-          <Select value={project.status} onValueChange={updateProjectStatus}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Edit Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="not-started">Not Started</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="on-hold">On Hold</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
+          <div>
+            <Select
+              value={project.status}
+              onValueChange={updateProjectStatus}
+              disabled={tasks.length > 0 && project.status === 'completed'}
+              open={statusDropdownOpen}
+              onOpenChange={setStatusDropdownOpen}
+            >
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Edit Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="not-started">Not Started</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="on-hold">On Hold</SelectItem>
+                <SelectItem value="completed" disabled={tasks.length > 0}>Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

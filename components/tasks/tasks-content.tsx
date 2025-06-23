@@ -389,7 +389,14 @@ export default function TasksContent({ user }: TasksContentProps) {
                           <SelectItem value="todo">To Do</SelectItem>
                           <SelectItem value="in-progress">In Progress</SelectItem>
                           <SelectItem value="review">Review</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem
+                            value="completed"
+                            disabled={
+                              (task.subtaskCount?.total ?? 0) > 0 && (task.subtaskCount?.completed ?? 0) < (task.subtaskCount?.total ?? 0)
+                            }
+                          >
+                            Completed
+                          </SelectItem>
                         </SelectContent>
                       </Select>
 

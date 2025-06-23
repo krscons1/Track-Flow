@@ -2,6 +2,9 @@ export function autoUpdateProjectStatus(progress: number, currentStatus: string)
   if (progress === 100 && currentStatus !== "completed") {
     return "completed"
   }
+  if (progress < 100 && currentStatus === "completed") {
+    return "in-progress"
+  }
   if (progress > 0 && progress < 100 && currentStatus === "not-started") {
     return "in-progress"
   }
