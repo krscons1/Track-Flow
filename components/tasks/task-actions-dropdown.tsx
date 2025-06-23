@@ -37,35 +37,33 @@ interface TaskActionsDropdownProps {
 
 export default function TaskActionsDropdown({ task, onUpdate }: TaskActionsDropdownProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showRenameDialog, setShowRenameDialog] = useState(false)
+  const [renameLoading, setRenameLoading] = useState(false)
+  const [renameError, setRenameError] = useState("")
+  const [newTitle, setNewTitle] = useState(task.title)
   const { toast } = useToast()
 
-  const handleDuplicate = async () => {
+  const handleRename = async () => {
+    setRenameLoading(true)
+    setRenameError("")
     try {
-      const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...task,
-          title: `${task.title} (Copy)`,
-          _id: undefined,
-        }),
+      const response = await fetch(`/api/tasks/${task._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
       })
-
       if (response.ok) {
-        toast({
-          title: "Task duplicated",
-          description: "Task has been duplicated successfully.",
-        })
+        toast({ title: "Task renamed", description: "Task name updated successfully." })
+        setShowRenameDialog(false)
         onUpdate()
+      } else {
+        const data = await response.json()
+        setRenameError(data.error || "Failed to rename task")
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to duplicate task",
-        variant: "destructive",
-      })
+      setRenameError("Failed to rename task")
+    } finally {
+      setRenameLoading(false)
     }
   }
 
@@ -107,13 +105,9 @@ export default function TaskActionsDropdown({ task, onUpdate }: TaskActionsDropd
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={handleDuplicate}>
+          <DropdownMenuItem onClick={() => setShowRenameDialog(true)}>
             <Copy className="h-4 w-4 mr-2" />
-            Duplicate
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleAddComment}>
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Add Comments
+            Rename
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600 focus:text-red-600">
@@ -135,6 +129,33 @@ export default function TaskActionsDropdown({ task, onUpdate }: TaskActionsDropd
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rename Dialog */}
+      <AlertDialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rename Task</AlertDialogTitle>
+            <AlertDialogDescription>Enter a new name for this task.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <input
+            className="w-full border rounded px-3 py-2 mt-2"
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            disabled={renameLoading}
+            autoFocus
+          />
+          {renameError && <div className="text-red-500 text-sm mt-2">{renameError}</div>}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={renameLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRename}
+              disabled={renameLoading || !newTitle.trim() || newTitle === task.title}
+            >
+              {renameLoading ? "Renaming..." : "Rename"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
