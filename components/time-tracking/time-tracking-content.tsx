@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import TimeAnalytics from "./time-analytics"
+import Modal from '@/components/ui/Modal'
 
 interface User {
   _id: string
@@ -105,6 +106,8 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const [trackerSubtask, setTrackerSubtask] = useState("")
   const [manualSubtasks, setManualSubtasks] = useState([])
   const [manualSubtask, setManualSubtask] = useState("")
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [entryToDelete, setEntryToDelete] = useState(null)
 
   useEffect(() => {
     loadProjects()
@@ -222,11 +225,18 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     const endTime = new Date()
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))
     const hours = duration / 60
+    const subtask = trackerSubtasks.find((s) => s._id === trackerSubtask)
     try {
       const response = await fetch(`/api/tasks/${trackerTask}/timelog`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hours, date: startTime.toISOString(), description: trackerDescription }),
+        body: JSON.stringify({
+          hours,
+          date: startTime.toISOString(),
+          description: trackerDescription,
+          subtaskId: trackerSubtask || undefined,
+          subtaskTitle: subtask ? subtask.title : undefined,
+        }),
       })
       if (response.ok) {
         setIsTracking(false)
@@ -234,6 +244,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
         setElapsedTime(0)
         setTrackerDescription("")
         setTrackerTask("")
+        setTrackerSubtask("")
         toast({ title: "Time entry saved", description: `Logged ${duration} minutes of work` })
         fetchAllTimeLogs(allTasks)
       } else {
@@ -256,13 +267,20 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
       })
       return
     }
+    const subtask = manualSubtasks.find((s) => s._id === manualSubtask)
     try {
       const now = new Date()
       const startTime = new Date(now.getTime() - totalMinutes * 60 * 1000)
       const response = await fetch(`/api/tasks/${manualTask}/timelog`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hours: totalMinutes / 60, date: startTime.toISOString(), description: manualDescription }),
+        body: JSON.stringify({
+          hours: totalMinutes / 60,
+          date: startTime.toISOString(),
+          description: manualDescription,
+          subtaskId: manualSubtask || undefined,
+          subtaskTitle: subtask ? subtask.title : undefined,
+        }),
       })
       if (response.ok) {
         setManualDescription("")
@@ -270,6 +288,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
         setManualProject("")
         setManualHours("")
         setManualMinutes("")
+        setManualSubtask("")
         toast({ title: "Manual entry added", description: `Added ${totalMinutes} minutes of work` })
         fetchAllTimeLogs(allTasks)
       } else {
@@ -280,18 +299,31 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     }
   }
 
-  const deleteTimeEntry = async (entryId: string) => {
-    try {
-      const response = await fetch(`/api/time-entries/${entryId}`, {
-        method: "DELETE",
-      })
+  const openDeleteModal = (entry) => {
+    setEntryToDelete(entry)
+    setDeleteModalOpen(true)
+  }
 
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false)
+    setEntryToDelete(null)
+  }
+
+  const confirmDeleteEntry = async () => {
+    if (!entryToDelete) return
+    try {
+      const response = await fetch(`/api/tasks/${entryToDelete.taskId}/timelog`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId: entryToDelete._id }),
+      })
       if (response.ok) {
-        setTimeEntries(timeEntries.filter((entry) => entry._id !== entryId))
+        setTimeEntries(timeEntries.filter((entry) => entry._id !== entryToDelete._id))
         toast({
           title: "Entry deleted",
           description: "Time entry has been deleted",
         })
+        fetchAllTimeLogs(allTasks)
       }
     } catch (error) {
       toast({
@@ -299,6 +331,8 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
         description: "Failed to delete time entry",
         variant: "destructive",
       })
+    } finally {
+      closeDeleteModal()
     }
   }
 
@@ -328,7 +362,8 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
           }
         }
       }
-      setTimeLogs(allLogs)
+      const sortedTimeLogs = [...allLogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      setTimeLogs(sortedTimeLogs)
     } catch (error) {
       toast({ title: "Error", description: "Failed to load time logs", variant: "destructive" })
     }
@@ -340,6 +375,14 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
       fetchAllTimeLogs(allTasks)
     }
   }, [allTasks])
+
+  // Add a helper to format the timestamp
+  function formatTimestamp(dateString: string) {
+    const date = new Date(dateString)
+    return date.toLocaleString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    })
+  }
 
   if (isLoading) {
     return (
@@ -609,18 +652,28 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                       <div className="flex items-center space-x-4">
                         <div className="w-4 h-4 rounded-full" style={{ backgroundColor: (projects.find(p => p._id === log.project)?.color || '#ccc') }}></div>
                         <div>
-                          <h4 className="font-medium text-gray-900">{log.taskTitle}</h4>
-                          <div className="flex items-center text-sm text-gray-500 mt-1">
+                          <h4 className="font-medium text-gray-900">
+                            {log.subtaskTitle || log.taskTitle}
+                          </h4>
+                          <div className="flex items-center text-sm text-gray-500 mt-1 gap-1 flex-wrap">
                             <span>{projects.find(p => p._id === log.project)?.title || 'Unknown Project'}</span>
-                            <span className="mx-2">•</span>
-                            <span>{new Date(log.date).toLocaleDateString()}</span>
+                            {log.subtaskTitle && <span className="mx-1">•</span>}
+                            {log.subtaskTitle && <span>{log.taskTitle}</span>}
+                            <span className="mx-1">•</span>
+                            <span>{formatTimestamp(log.createdAt)}</span>
+                            <span className="mx-1">•</span>
+                            <span>{(log.hours * 60).toFixed(0)}m</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <p className="font-semibold text-gray-900">{(log.hours * 60).toFixed(0)}m</p>
-                        </div>
+                        <button
+                          onClick={() => openDeleteModal(log)}
+                          className="ml-2 text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+                          title="Delete entry"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -645,6 +698,28 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
           />
         )}
       </div>
+
+      <Modal open={deleteModalOpen}>
+        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm animate-fade-in">
+          <h3 className="text-lg font-semibold mb-4">Delete Entry</h3>
+          <p className="mb-6">Are you sure you want to delete this entry? This action cannot be undone.</p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={closeDeleteModal}
+              className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDeleteEntry}
+              className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
+

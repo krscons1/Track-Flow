@@ -9,6 +9,8 @@ export interface TimeLog {
   hours: number
   date: Date
   description?: string
+  subtaskId?: ObjectId
+  subtaskTitle?: string
   createdAt: Date
 }
 
@@ -37,5 +39,11 @@ export class TimeLogModel {
   static async find(query: any): Promise<TimeLog[]> {
     const db = await getDatabase()
     return (await db.collection("timelogs").find(query).toArray()) as TimeLog[]
+  }
+
+  static async deleteById(id: string, userId: string): Promise<boolean> {
+    const db = await getDatabase()
+    const result = await db.collection("timelogs").deleteOne({ _id: new ObjectId(id), userId: new ObjectId(userId) })
+    return result.deletedCount === 1
   }
 } 

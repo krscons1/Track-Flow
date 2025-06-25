@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const data = await request.json()
-    const { hours, date, description } = data
+    const { hours, date, description, subtaskId, subtaskTitle } = data
 
     if (!hours || !date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -29,6 +29,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       taskId: new ObjectId(params.id),
       userId: new ObjectId(user._id),
       description: description || "",
+      subtaskId: subtaskId ? new ObjectId(subtaskId) : undefined,
+      subtaskTitle: subtaskTitle || undefined,
     })
 
     const sanitizedTimeLog = {
@@ -36,6 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       _id: timeLog._id?.toString(),
       taskId: timeLog.taskId.toString(),
       userId: timeLog.userId.toString(),
+      subtaskId: timeLog.subtaskId?.toString(),
     }
 
     return NextResponse.json({ timeLog: sanitizedTimeLog }, { status: 201 })
@@ -67,6 +70,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ timeLogs: sanitizedTimeLogs })
   } catch (error) {
     console.error("Get time logs error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const { logId } = await request.json()
+    if (!logId) {
+      return NextResponse.json({ error: "Missing logId" }, { status: 400 })
+    }
+    const deleted = await TimeLogModel.deleteById(logId, user._id)
+    if (deleted) {
+      return NextResponse.json({ message: "Time log deleted" }, { status: 200 })
+    } else {
+      return NextResponse.json({ error: "Not found or not authorized" }, { status: 404 })
+    }
+  } catch (error) {
+    console.error("Delete time log error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 
