@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       status: status || "todo",
       priority: priority || "medium",
       project: new ObjectId(project),
-      assignee: new ObjectId(assignee),
+      assignee: assignee === "all" ? "all" : new ObjectId(assignee),
       createdBy: new ObjectId(user._id),
       dueDate: new Date(dueDate),
       estimatedHours: estimatedHours || 0,

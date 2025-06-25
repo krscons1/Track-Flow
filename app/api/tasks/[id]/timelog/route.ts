@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const data = await request.json()
-    const { hours, date, description, subtaskId, subtaskTitle } = data
+    const { hours, date, description, subtaskId, subtaskTitle, pomodoroSessions, breakMinutes, breaksSkipped } = data
 
     if (!hours || !date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -31,6 +31,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       description: description || "",
       subtaskId: subtaskId ? new ObjectId(subtaskId) : undefined,
       subtaskTitle: subtaskTitle || undefined,
+      pomodoroSessions: pomodoroSessions || undefined,
+      breakMinutes: breakMinutes || undefined,
+      breaksSkipped: breaksSkipped || undefined,
     })
 
     const sanitizedTimeLog = {

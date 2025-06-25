@@ -12,6 +12,10 @@ export interface TimeLog {
   subtaskId?: ObjectId
   subtaskTitle?: string
   createdAt: Date
+  // Pomodoro analytics fields
+  pomodoroSessions?: number
+  breakMinutes?: number
+  breaksSkipped?: number
 }
 
 export class TimeLogModel {

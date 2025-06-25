@@ -23,6 +23,7 @@ interface Project {
   _id: string
   title: string
   color: string
+  dueDate?: string
 }
 
 interface CreateTaskFormProps {
@@ -130,6 +131,15 @@ export default function CreateTaskForm({ user, onSuccess, prefilledData }: Creat
     }
   }
 
+  // Find the selected project object
+  const selectedProject = projects.find((p) => p._id === formData.project)
+  // Today's date in yyyy-mm-dd
+  const todayStr = new Date().toISOString().split('T')[0]
+  // Project due date in yyyy-mm-dd
+  const projectDueDateStr = selectedProject && selectedProject.dueDate ? new Date(selectedProject.dueDate).toISOString().split('T')[0] : undefined
+  // Only show users who are members of the selected project
+  const projectMembers = selectedProject && selectedProject.members ? users.filter(u => selectedProject.members.includes(u._id)) : []
+
   if (isLoadingData) {
     return (
       <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
@@ -225,7 +235,6 @@ export default function CreateTaskForm({ user, onSuccess, prefilledData }: Creat
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="assignee" className="text-sm font-medium text-gray-700 flex items-center">
                 <Users className="h-4 w-4 mr-2" />
@@ -239,11 +248,16 @@ export default function CreateTaskForm({ user, onSuccess, prefilledData }: Creat
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user._id} value={user._id}>
-                      {user.name} ({user.email})
-                    </SelectItem>
-                  ))}
+                  {projectMembers.length === 0
+                    ? <div className="px-4 py-2 text-gray-400 text-sm">No members available</div>
+                    : <>
+                        <SelectItem value="all">All (Whole Team)</SelectItem>
+                        {projectMembers.map((user) => (
+                          <SelectItem key={user._id} value={user._id}>
+                            {user.name} ({user.email})
+                          </SelectItem>
+                        ))}
+                      </>}
                 </SelectContent>
               </Select>
             </div>
@@ -263,6 +277,8 @@ export default function CreateTaskForm({ user, onSuccess, prefilledData }: Creat
                 required
                 disabled={isLoading}
                 className="focus-ring"
+                min={todayStr}
+                max={projectDueDateStr}
               />
             </div>
 

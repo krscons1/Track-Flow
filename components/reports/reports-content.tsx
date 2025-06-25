@@ -32,6 +32,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts"
+import ActivityFeed from '@/components/dashboard/activity-feed'
 
 interface User {
   _id: string
@@ -49,6 +50,7 @@ const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
 
 export default function ReportsContent({ user }: ReportsContentProps) {
   const [isLoading, setIsLoading] = useState(true)
+  const [pomodoroSessions, setPomodoroSessions] = useState<any[]>([])
   const [realTimeData, setRealTimeData] = useState({
     totalHours: 0,
     pomodoroSessions: 0,
@@ -59,6 +61,11 @@ export default function ReportsContent({ user }: ReportsContentProps) {
     projectTimeData: [],
     productivityTrends: [],
     taskCompletionData: [],
+    donutChartData: [],
+    avgSessionLength: 0,
+    breakSkipped: 0,
+    focusBreakRatio: 0,
+    focusSessionsByDay: [],
   })
 
   useEffect(() => {
@@ -70,39 +77,150 @@ export default function ReportsContent({ user }: ReportsContentProps) {
 
   const loadRealTimeData = async () => {
     try {
-      // Simulate real-time data fetching from multiple APIs
-      const [projectsRes, tasksRes] = await Promise.all([fetch("/api/projects"), fetch("/api/tasks")])
+      // Fetch all user time logs for real analytics
+      const [projectsRes, tasksRes, pomodoroRes, timeLogsRes] = await Promise.all([
+        fetch("/api/projects", { cache: 'no-store' }),
+        fetch("/api/tasks", { cache: 'no-store' }),
+        fetch(`/api/pomodoro-sessions?userId=${user._id}`, { cache: 'no-store' }),
+        fetch("/api/timelogs", { cache: 'no-store' }),
+      ])
 
       const projectsData = await projectsRes.json()
       const tasksData = await tasksRes.json()
+      const pomodoroData = pomodoroRes.ok ? await pomodoroRes.json() : []
+      const timeLogs = timeLogsRes.ok ? (await timeLogsRes.json()).timeLogs : []
+      setPomodoroSessions(pomodoroData)
 
       // Calculate real metrics from actual data
       const projects = projectsData.projects || []
       const tasks = tasksData.tasks || []
 
-      const completedTasks = tasks.filter((task: any) => task.status === "completed")
-      const totalHours = tasks.reduce((sum: number, task: any) => sum + (task.actualHours || 0), 0)
+      // --- REAL DATA AGGREGATION ---
+      // Total Hours
+      const totalHours = timeLogs.reduce((sum, log) => sum + (log.hours || 0), 0)
+      // Focus Sessions (Pomodoro)
+      const focusSessions = timeLogs.reduce((sum, log) => sum + (log.pomodoroSessions || 0), 0)
+      // Tasks Done
+      const completedTasks = tasks.filter((task) => task.status === "completed")
 
-      // Generate dynamic time tracking data based on current week
-      const timeTrackingData = generateWeeklyData(tasks)
-      const pomodoroData = generatePomodoroData()
-      const projectTimeData = generateProjectTimeData(projects, tasks)
-      const productivityTrends = generateProductivityTrends()
-      const taskCompletionData = generateTaskCompletionData(tasks)
+      // Weekly Time Tracking Chart (group by day)
+      const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      const timeTrackingData = weekDays.map((day, i) => {
+        const logsForDay = timeLogs.filter(log => new Date(log.date).getDay() === i)
+        return {
+          day,
+          hours: logsForDay.reduce((sum, log) => sum + (log.hours || 0), 0),
+          target: 8,
+        }
+      })
+
+      // Weekly Focus Sessions Chart (group by day)
+      const focusSessionsByDay = weekDays.map((day, i) => {
+        const logsForDay = timeLogs.filter(log => new Date(log.date).getDay() === i)
+        return {
+          day,
+          sessions: logsForDay.reduce((sum, log) => sum + (log.pomodoroSessions || 0), 0),
+        }
+      })
+
+      // Pomodoro by hour (line chart)
+      const hours = Array.from({ length: 24 }, (_, i) => i)
+      const pomodoroDataByHour = hours.map((hour) => ({
+        hour: `${hour}:00`,
+        pomodoros: timeLogs.filter(log => {
+          const d = new Date(log.date)
+          return d.getHours() === hour
+        }).reduce((sum, log) => sum + (log.pomodoroSessions || 0), 0),
+      }))
+
+      // Donut chart: Focus vs Break time (minutes)
+      const focusMinutes = timeLogs.reduce((sum, log) => sum + ((log.pomodoroSessions || 0) * 25), 0)
+      const breakMinutes = timeLogs.reduce((sum, log) => sum + (log.breakMinutes || 0), 0)
+      const donutChartData = [
+        { name: 'Focus', value: Math.round(focusMinutes), color: '#3B82F6' },
+        { name: 'Break', value: Math.round(breakMinutes), color: '#F59E0B' },
+      ]
+
+      // Project Time Distribution (aggregate from timeLogs)
+      const projectTimeMap = new Map()
+      timeLogs.forEach(log => {
+        const projectId = tasks.find(t => t._id === log.taskId)?.project
+        if (!projectId) return
+        if (!projectTimeMap.has(projectId)) {
+          const project = projects.find(p => p._id === projectId)
+          projectTimeMap.set(projectId, {
+            name: project ? project.title : 'Unknown',
+            hours: 0,
+            color: project ? project.color : '#ccc',
+          })
+        }
+        projectTimeMap.get(projectId).hours += log.hours || 0
+      })
+      const projectTimeData = Array.from(projectTimeMap.values())
+
+      // --- PRODUCTIVITY TRENDS (REAL DATA) ---
+      // Helper to get week number from a date
+      function getWeekNumber(d: Date) {
+        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+        return weekNo;
+      }
+      // Get last 6 weeks
+      const now = new Date();
+      const currentWeek = getWeekNumber(now);
+      const currentYear = now.getFullYear();
+      const weeks = Array.from({length: 6}, (_, i) => {
+        const weekNum = currentWeek - (5 - i);
+        return { week: `Week ${weekNum}`, weekNum, year: currentYear };
+      });
+      // Aggregate for each week
+      const productivityTrends = weeks.map(({ week, weekNum, year }) => {
+        // Filter logs and tasks for this week
+        const logsForWeek = timeLogs.filter(log => {
+          const d = new Date(log.date);
+          return getWeekNumber(d) === weekNum && d.getFullYear() === year;
+        });
+        const tasksForWeek = tasks.filter(task => {
+          const d = new Date(task.createdAt || task.date || task.completedAt || task.updatedAt || now);
+          return getWeekNumber(d) === weekNum && d.getFullYear() === year;
+        });
+        const completedTasksForWeek = tasksForWeek.filter(t => t.status === "completed");
+        // Efficiency: completed/total tasks
+        const efficiency = Math.round((completedTasksForWeek.length / Math.max(tasksForWeek.length, 1)) * 100);
+        // Focus: total pomodoro sessions (or minutes)
+        const totalFocusSessions = logsForWeek.reduce((sum, log) => sum + (log.pomodoroSessions || 0), 0);
+        const totalHours = logsForWeek.reduce((sum, log) => sum + (log.hours || 0), 0);
+        const focus = Math.round((totalFocusSessions * 25) / Math.max(totalHours * 60, 1) * 100); // as % of time
+        // Completion: same as efficiency for now
+        const completion = efficiency;
+        return {
+          week,
+          efficiency,
+          focus,
+          completion,
+        };
+      });
 
       setRealTimeData({
         totalHours: Math.round(totalHours * 10) / 10,
-        pomodoroSessions: Math.floor(totalHours * 2.5), // Estimate based on hours
+        pomodoroSessions: focusSessions,
         efficiencyRate: Math.min(
           95,
           Math.max(75, Math.round((completedTasks.length / Math.max(tasks.length, 1)) * 100)),
         ),
         tasksCompleted: completedTasks.length,
         timeTrackingData,
-        pomodoroData,
+        pomodoroData: pomodoroDataByHour,
         projectTimeData,
         productivityTrends,
-        taskCompletionData,
+        taskCompletionData: [],
+        donutChartData,
+        avgSessionLength: 25,
+        breakSkipped: 0,
+        focusBreakRatio: 100,
+        focusSessionsByDay,
       })
     } catch (error) {
       console.error("Failed to load real-time data:", error)
@@ -213,13 +331,6 @@ export default function ReportsContent({ user }: ReportsContentProps) {
           <Button variant="outline" className="border-2 hover:bg-gray-50 transition-all duration-200">
             <Download className="h-4 w-4 mr-2" />
             Export Report
-          </Button>
-          <Button
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-            onClick={loadRealTimeData}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh Now
           </Button>
         </div>
       </div>
@@ -355,21 +466,12 @@ export default function ReportsContent({ user }: ReportsContentProps) {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={realTimeData.pomodoroData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <BarChart data={realTimeData.focusSessionsByDay || []}>
                 <XAxis dataKey="day" stroke="#666" />
                 <YAxis stroke="#666" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "12px",
-                    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e0e0e0", borderRadius: "12px", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }} />
                 <Legend />
                 <Bar dataKey="sessions" fill="#10B981" name="Total Sessions" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="completed" fill="#059669" name="Completed" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -393,7 +495,7 @@ export default function ReportsContent({ user }: ReportsContentProps) {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={realTimeData.projectTimeData}
+                  data={realTimeData.projectTimeData || []}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -402,8 +504,8 @@ export default function ReportsContent({ user }: ReportsContentProps) {
                   fill="#8884d8"
                   dataKey="hours"
                 >
-                  {realTimeData.projectTimeData.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {(realTimeData.projectTimeData || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -416,6 +518,53 @@ export default function ReportsContent({ user }: ReportsContentProps) {
                 />
               </PieChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pomodoro Donut Chart and Activity Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
+        {/* Pomodoro Donut Chart */}
+        <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center text-xl font-semibold text-gray-800">
+              Pomodoro Focus vs Break
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={realTimeData.donutChartData || []}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {(realTimeData.donutChartData || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="text-xs text-gray-500 mt-2">Focus vs Break Time (Pomodoro)</div>
+          </CardContent>
+        </Card>
+        {/* Team Activity Feed */}
+        <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center text-xl font-semibold text-gray-800">
+              Team Activity Feed
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ActivityFeed user={user} pomodoroSessions={pomodoroSessions} />
           </CardContent>
         </Card>
       </div>

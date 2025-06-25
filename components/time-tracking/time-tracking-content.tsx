@@ -88,6 +88,8 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const [elapsedTime, setElapsedTime] = useState(0)
   const [manualHours, setManualHours] = useState("")
   const [manualMinutes, setManualMinutes] = useState("")
+  const [manualBreakMinutes, setManualBreakMinutes] = useState("")
+  const [manualPomodoroSummary, setManualPomodoroSummary] = useState<{sessions: number, breaks: number, breaksSkipped: number} | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("tracker")
   const { toast } = useToast()
@@ -108,6 +110,14 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const [manualSubtask, setManualSubtask] = useState("")
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState(null)
+  // Pomodoro state
+  const POMODORO_WORK = 25 * 60
+  const POMODORO_BREAK = 5 * 60
+  const [pomodoroMode, setPomodoroMode] = useState<'work' | 'break'>('work')
+  const [pomodoroSessionCount, setPomodoroSessionCount] = useState(0)
+  const [breakCount, setBreakCount] = useState(0)
+  const [breaksSkipped, setBreaksSkipped] = useState(0)
+  const [breakTimeAccum, setBreakTimeAccum] = useState(0)
 
   useEffect(() => {
     loadProjects()
@@ -138,11 +148,26 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     let interval: NodeJS.Timeout
     if (isTracking && startTime) {
       interval = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - startTime.getTime()) / 1000))
+        setElapsedTime((prev) => {
+          if (pomodoroMode === 'work') {
+            if (prev + 1 >= POMODORO_WORK) {
+              // End of work session
+              handlePomodoroSessionEnd()
+              return 0
+            }
+          } else {
+            if (prev + 1 >= POMODORO_BREAK) {
+              // End of break
+              handleBreakEnd()
+              return 0
+            }
+          }
+          return prev + 1
+        })
       }, 1000)
     }
     return () => clearInterval(interval)
-  }, [isTracking, startTime])
+  }, [isTracking, startTime, pomodoroMode])
 
   useEffect(() => {
     if (trackerTask) {
@@ -197,6 +222,46 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     }
   }
 
+  const handlePomodoroSessionEnd = async () => {
+    setPomodoroSessionCount((c) => c + 1)
+    setPomodoroMode('break')
+    setElapsedTime(0)
+    setBreakTimeAccum(0)
+    setBreakCount((c) => c + 1)
+    // Log the work session
+    await logPomodoroSession('work')
+  }
+
+  const handleBreakEnd = async () => {
+    setPomodoroMode('work')
+    setElapsedTime(0)
+    setBreakTimeAccum((b) => b + POMODORO_BREAK)
+    // Log the break
+    await logPomodoroSession('break')
+  }
+
+  const logPomodoroSession = async (type: 'work' | 'break') => {
+    if (!trackerProject || !trackerTask || !trackerDescription.trim()) return
+    const now = new Date()
+    const duration = type === 'work' ? POMODORO_WORK / 60 : POMODORO_BREAK / 60
+    const body: any = {
+      hours: duration / 60,
+      date: now.toISOString(),
+      description: trackerDescription,
+      subtaskId: trackerSubtask || undefined,
+      subtaskTitle: trackerSubtasks.find((s) => s._id === trackerSubtask)?.title,
+      pomodoroSessions: type === 'work' ? 1 : 0,
+      breakMinutes: type === 'break' ? POMODORO_BREAK / 60 : 0,
+      breaksSkipped: 0,
+    }
+    await fetch(`/api/tasks/${trackerTask}/timelog`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    fetchAllTimeLogs(allTasks)
+  }
+
   const startTracking = () => {
     if (!trackerProject || !trackerTask || !trackerDescription.trim()) {
       toast({
@@ -209,6 +274,11 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     setIsTracking(true)
     setStartTime(new Date())
     setElapsedTime(0)
+    setPomodoroMode('work')
+    setPomodoroSessionCount(0)
+    setBreakCount(0)
+    setBreaksSkipped(0)
+    setBreakTimeAccum(0)
     toast({ title: "Time tracking started", description: "Timer is now running" })
   }
 
@@ -221,44 +291,45 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   }
 
   const stopTracking = async () => {
-    if (!startTime || !trackerTask) return
-    const endTime = new Date()
-    const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))
-    const hours = duration / 60
-    const subtask = trackerSubtasks.find((s) => s._id === trackerSubtask)
-    try {
-      const response = await fetch(`/api/tasks/${trackerTask}/timelog`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+    setIsTracking(false)
+    // If stopped during a work session, log partial session if > 0
+    if (pomodoroMode === 'work' && elapsedTime > 0) {
+      const sessions = Math.floor(elapsedTime / POMODORO_WORK)
+      const breaks = breakCount
+      const breaksSkipped = Math.max(0, sessions - breaks)
+      await fetch(`/api/tasks/${trackerTask}/timelog`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          hours,
-          date: startTime.toISOString(),
+          hours: elapsedTime / 3600,
+          date: startTime?.toISOString(),
           description: trackerDescription,
           subtaskId: trackerSubtask || undefined,
-          subtaskTitle: subtask ? subtask.title : undefined,
+          subtaskTitle: trackerSubtasks.find((s) => s._id === trackerSubtask)?.title,
+          pomodoroSessions: sessions,
+          breakMinutes: breakTimeAccum / 60,
+          breaksSkipped,
         }),
       })
-      if (response.ok) {
-        setIsTracking(false)
+      fetchAllTimeLogs(allTasks)
+    }
         setStartTime(null)
         setElapsedTime(0)
-        setTrackerDescription("")
-        setTrackerTask("")
-        setTrackerSubtask("")
-        toast({ title: "Time entry saved", description: `Logged ${duration} minutes of work` })
-        fetchAllTimeLogs(allTasks)
-      } else {
-        toast({ title: "Error", description: "Failed to save time entry", variant: "destructive" })
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to save time entry", variant: "destructive" })
-    }
+    setTrackerDescription("")
+    setTrackerTask("")
+    setTrackerSubtask("")
+    setPomodoroSessionCount(0)
+    setBreakCount(0)
+    setBreaksSkipped(0)
+    setBreakTimeAccum(0)
+    toast({ title: "Time tracking stopped", description: "Session ended" })
   }
 
   const addManualEntry = async () => {
     const hours = Number.parseInt(manualHours) || 0
     const minutes = Number.parseInt(manualMinutes) || 0
     const totalMinutes = hours * 60 + minutes
+    const breakMinutes = Number(manualBreakMinutes) || 0
     if (!manualProject || !manualTask || !manualDescription.trim() || totalMinutes <= 0) {
       toast({
         title: "Missing Information",
@@ -267,6 +338,9 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
       })
       return
     }
+    const sessions = Math.floor(totalMinutes / 25)
+    const breaks = sessions
+    const breaksSkipped = Math.max(0, sessions - Math.floor(breakMinutes / 5))
     const subtask = manualSubtasks.find((s) => s._id === manualSubtask)
     try {
       const now = new Date()
@@ -280,6 +354,9 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
           description: manualDescription,
           subtaskId: manualSubtask || undefined,
           subtaskTitle: subtask ? subtask.title : undefined,
+          pomodoroSessions: sessions,
+          breakMinutes,
+          breaksSkipped,
         }),
       })
       if (response.ok) {
@@ -289,6 +366,8 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
         setManualHours("")
         setManualMinutes("")
         setManualSubtask("")
+        setManualBreakMinutes("")
+        setManualPomodoroSummary(null)
         toast({ title: "Manual entry added", description: `Added ${totalMinutes} minutes of work` })
         fetchAllTimeLogs(allTasks)
       } else {
@@ -474,7 +553,6 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                     )}
                   </div>
                 </div>
-
                 <div className="space-y-4">
                   <Select value={trackerProject} onValueChange={setTrackerProject}>
                     <SelectTrigger>
@@ -615,6 +693,31 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                       />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Break Minutes</label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={manualBreakMinutes}
+                      onChange={e => {
+                        setManualBreakMinutes(e.target.value)
+                        // Calculate summary
+                        const workMinutes = (Number(manualHours) || 0) * 60 + (Number(manualMinutes) || 0)
+                        const breakMinutes = Number(e.target.value) || 0
+                        const sessions = Math.floor(workMinutes / 25)
+                        const breaks = sessions
+                        const breaksSkipped = Math.max(0, sessions - Math.floor(breakMinutes / 5))
+                        setManualPomodoroSummary({ sessions, breaks, breaksSkipped })
+                      }}
+                      min="0"
+                      max="300"
+                    />
+                  </div>
+                  {manualPomodoroSummary && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      Pomodoro Sessions: <b>{manualPomodoroSummary.sessions}</b>, Breaks: <b>{manualPomodoroSummary.breaks}</b>, Breaks Skipped: <b>{manualPomodoroSummary.breaksSkipped}</b>
+                    </div>
+                  )}
 
                   <Button onClick={addManualEntry} className="w-full bg-blue-600 hover:bg-blue-700">
                     <Plus className="h-4 w-4 mr-2" />
@@ -661,12 +764,11 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                             {log.subtaskTitle && <span>{log.taskTitle}</span>}
                             <span className="mx-1">•</span>
                             <span>{formatTimestamp(log.createdAt)}</span>
-                            <span className="mx-1">•</span>
-                            <span>{(log.hours * 60).toFixed(0)}m</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
+                        <span className="text-sm text-gray-700 font-semibold">{log.hours.toFixed(1)}h</span>
                         <button
                           onClick={() => openDeleteModal(log)}
                           className="ml-2 text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:bg-red-50"

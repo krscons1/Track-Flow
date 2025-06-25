@@ -133,7 +133,7 @@ export default function TasksContent({ user }: TasksContentProps) {
 
     if (assigneeFilter !== "all") {
       if (assigneeFilter === "me") {
-        filtered = filtered.filter((task) => task.assignee._id === user._id)
+        filtered = filtered.filter((task) => task.assignee._id === user._id || task.assignee._id === "all")
       }
     }
 

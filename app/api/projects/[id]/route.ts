@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { ProjectModel } from "@/lib/server-only/models/Project"
 import { getCurrentUser } from "@/lib/server-only/auth"
+import { TaskModel } from "@/lib/server-only/models/Task"
+import { TimeLogModel } from "@/lib/server-only/models/TimeLog"
+import { getDatabase } from "@/lib/server-only/mongodb"
+import { ObjectId } from "mongodb"
 
 interface RouteParams {
   params: {
@@ -69,13 +73,26 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Find all tasks for this project
+    const tasks = await TaskModel.findByProject(params.id)
+    const taskIds = tasks.map((t) => t._id?.toString()).filter(Boolean)
+
+    // Delete all time logs for these tasks
+    if (taskIds.length > 0) {
+      const db = await getDatabase()
+      await db.collection("timelogs").deleteMany({ taskId: { $in: taskIds.map((id) => new ObjectId(id)) } })
+      // Delete all tasks for this project
+      await db.collection("tasks").deleteMany({ _id: { $in: taskIds.map((id) => new ObjectId(id)) } })
+    }
+
+    // Delete the project itself
     const success = await ProjectModel.deleteById(params.id)
 
     if (!success) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ message: "Project deleted successfully" })
+    return NextResponse.json({ message: "Project and related entries deleted successfully" })
   } catch (error) {
     console.error("Delete project error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

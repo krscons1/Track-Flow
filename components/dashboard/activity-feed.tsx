@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, CheckCircle, FolderOpen, Edit, Plus } from "lucide-react"
+import { Activity, CheckCircle, FolderOpen, Edit, Plus, Timer, Coffee } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
 interface ActivityItem {
   id: string
-  type: "task_created" | "task_completed" | "project_created" | "project_updated"
+  type: string
   description: string
   timestamp: Date
-  entityId: string
-  entityName: string
+  entityId?: string
+  entityName?: string
+  userName?: string
 }
 
 interface User {
@@ -23,15 +24,17 @@ interface User {
 
 interface ActivityFeedProps {
   user: User
+  pomodoroSessions?: any[]
 }
 
-export default function ActivityFeed({ user }: ActivityFeedProps) {
+export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFeedProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     loadActivities()
-  }, [])
+    // eslint-disable-next-line
+  }, [pomodoroSessions])
 
   const loadActivities = async () => {
     try {
@@ -40,11 +43,11 @@ export default function ActivityFeed({ user }: ActivityFeedProps) {
 
       const [projectsData, tasksData] = await Promise.all([projectsRes.json(), tasksRes.json()])
 
+      let mockActivities: ActivityItem[] = []
+
       if (projectsRes.ok && tasksRes.ok) {
         const projects = projectsData.projects || []
         const tasks = tasksData.tasks || []
-
-        const mockActivities: ActivityItem[] = []
 
         // Add project activities
         projects.forEach((project: any, index: number) => {
@@ -80,14 +83,42 @@ export default function ActivityFeed({ user }: ActivityFeedProps) {
             })
           }
         })
-
-        // Sort by timestamp (newest first) and take top 10
-        const sortedActivities = mockActivities
-          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-          .slice(0, 10)
-
-        setActivities(sortedActivities)
       }
+
+      // Add Pomodoro session activities
+      if (pomodoroSessions.length > 0) {
+        pomodoroSessions.forEach((session: any) => {
+          let desc = ""
+          let iconType = "pomodoro"
+          if (session.type === "focus" && session.status === "completed") {
+            desc = `Completed a Pomodoro on ${session.projectId ? `project` : "a task"}`
+            iconType = "pomodoro"
+          } else if (session.type === "focus" && session.status === "skipped") {
+            desc = `Skipped a Pomodoro session`
+            iconType = "pomodoro"
+          } else if (session.type === "break" && session.status === "completed") {
+            desc = `Completed a break`
+            iconType = "break"
+          } else if (session.type === "break" && session.status === "skipped") {
+            desc = `Skipped a break`
+            iconType = "break"
+          }
+          mockActivities.push({
+            id: `pomodoro-${session._id}`,
+            type: iconType,
+            description: desc,
+            timestamp: new Date(session.endTime),
+            userName: session.userName || "User",
+          })
+        })
+      }
+
+      // Sort by timestamp (newest first) and take top 10
+      const sortedActivities = mockActivities
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .slice(0, 10)
+
+      setActivities(sortedActivities)
     } catch (error) {
       console.error("Failed to load activities:", error)
     } finally {
@@ -105,6 +136,10 @@ export default function ActivityFeed({ user }: ActivityFeedProps) {
         return <FolderOpen className="h-4 w-4 text-purple-500" />
       case "project_updated":
         return <Edit className="h-4 w-4 text-orange-500" />
+      case "pomodoro":
+        return <Timer className="h-4 w-4 text-red-500" />
+      case "break":
+        return <Coffee className="h-4 w-4 text-yellow-500" />
       default:
         return <Activity className="h-4 w-4 text-gray-500" />
     }
