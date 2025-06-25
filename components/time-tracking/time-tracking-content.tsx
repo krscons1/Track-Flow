@@ -63,6 +63,14 @@ interface TimeEntry {
   }
 }
 
+interface TimeLog {
+  _id: string
+  taskId: string
+  userId: string
+  hours: number
+  date: string
+}
+
 interface TimeTrackingContentProps {
   user: User
 }
@@ -82,10 +90,46 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("tracker")
   const { toast } = useToast()
+  const [allTasks, setAllTasks] = useState<Task[]>([])
+  const [timeLogs, setTimeLogs] = useState<TimeLog[]>([])
+  // Tracker state
+  const [trackerProject, setTrackerProject] = useState("")
+  const [trackerTask, setTrackerTask] = useState("")
+  const [trackerDescription, setTrackerDescription] = useState("")
+  // Manual entry state
+  const [manualProject, setManualProject] = useState("")
+  const [manualTask, setManualTask] = useState("")
+  const [manualDescription, setManualDescription] = useState("")
+  const [manualTasks, setManualTasks] = useState<Task[]>([])
+  const [trackerSubtasks, setTrackerSubtasks] = useState([])
+  const [trackerSubtask, setTrackerSubtask] = useState("")
+  const [manualSubtasks, setManualSubtasks] = useState([])
+  const [manualSubtask, setManualSubtask] = useState("")
 
   useEffect(() => {
-    loadData()
+    loadProjects()
+    loadTasks()
   }, [])
+
+  useEffect(() => {
+    if (trackerProject) {
+      setTasks(allTasks.filter((task) => task.project === trackerProject))
+      setTrackerTask("")
+    } else {
+      setTasks([])
+      setTrackerTask("")
+    }
+  }, [trackerProject, allTasks])
+
+  useEffect(() => {
+    if (manualProject) {
+      setManualTasks(allTasks.filter((task) => task.project === manualProject))
+      setManualTask("")
+    } else {
+      setManualTasks([])
+      setManualTask("")
+    }
+  }, [manualProject, allTasks])
 
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -98,107 +142,71 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   }, [isTracking, startTime])
 
   useEffect(() => {
-    if (selectedProject) {
-      loadTasksForProject(selectedProject)
-    } else {
-      setTasks([])
-      setSelectedTask("")
-    }
-  }, [selectedProject])
-
-  const loadData = async () => {
-    try {
-      // Load projects
-      const projectsResponse = await fetch("/api/projects")
-      const projectsData = await projectsResponse.json()
-
-      // Load time entries
-      const timeEntriesResponse = await fetch("/api/time-entries")
-      const timeEntriesData = await timeEntriesResponse.json()
-
-      // Mock data for demonstration
-      const mockProjects: Project[] = [
-        { _id: "1", title: "Website Redesign", color: "#3B82F6" },
-        { _id: "2", title: "Mobile App", color: "#10B981" },
-        { _id: "3", title: "Marketing Campaign", color: "#F59E0B" },
-      ]
-
-      const mockTimeEntries: TimeEntry[] = [
-        {
-          _id: "1",
-          projectId: "1",
-          taskId: "1",
-          description: "Working on homepage design",
-          startTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          endTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-          duration: 60,
-          isApproved: true,
-          createdAt: new Date().toISOString(),
-          project: { title: "Website Redesign", color: "#3B82F6" },
-          task: { title: "Homepage Design" },
-        },
-        {
-          _id: "2",
-          projectId: "2",
-          description: "Bug fixes and testing",
-          startTime: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          endTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          duration: 120,
-          isApproved: false,
-          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          project: { title: "Mobile App", color: "#10B981" },
-        },
-      ]
-
-      setProjects(mockProjects)
-      setTimeEntries(mockTimeEntries)
-    } catch (error) {
-      console.error("Failed to load data:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load time tracking data",
-        variant: "destructive",
+    if (trackerTask) {
+      fetch(`/api/tasks/${trackerTask}/subtasks`).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json()
+          setTrackerSubtasks(data.subtasks || [])
+          setTrackerSubtask("")
+        }
       })
+    } else {
+      setTrackerSubtasks([])
+      setTrackerSubtask("")
+    }
+  }, [trackerTask])
+
+  useEffect(() => {
+    if (manualTask) {
+      fetch(`/api/tasks/${manualTask}/subtasks`).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json()
+          setManualSubtasks(data.subtasks || [])
+          setManualSubtask("")
+        }
+      })
+    } else {
+      setManualSubtasks([])
+      setManualSubtask("")
+    }
+  }, [manualTask])
+
+  const loadProjects = async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/projects")
+      const data = await res.json()
+      setProjects(data.projects || [])
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to load projects", variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const loadTasksForProject = async (projectId: string) => {
+  const loadTasks = async () => {
     try {
-      const response = await fetch(`/api/projects/${projectId}/tasks`)
-      const data = await response.json()
-
-      // Mock tasks for demonstration
-      const mockTasks: Task[] = [
-        { _id: "1", title: "Homepage Design", project: projectId },
-        { _id: "2", title: "User Authentication", project: projectId },
-        { _id: "3", title: "Database Setup", project: projectId },
-      ]
-
-      setTasks(mockTasks)
+      const res = await fetch("/api/tasks")
+      const data = await res.json()
+      setAllTasks(data.tasks || [])
     } catch (error) {
-      console.error("Failed to load tasks:", error)
+      toast({ title: "Error", description: "Failed to load tasks", variant: "destructive" })
     }
   }
 
   const startTracking = () => {
-    if (!selectedProject || !description.trim()) {
+    if (!trackerProject || !trackerTask || !trackerDescription.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please select a project and add a description",
+        description: "Please select a project, task, and add a description",
         variant: "destructive",
       })
       return
     }
-
     setIsTracking(true)
     setStartTime(new Date())
     setElapsedTime(0)
-    toast({
-      title: "Time tracking started",
-      description: "Timer is now running",
-    })
+    toast({ title: "Time tracking started", description: "Timer is now running" })
   }
 
   const pauseTracking = () => {
@@ -210,60 +218,29 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   }
 
   const stopTracking = async () => {
-    if (!startTime) return
-
+    if (!startTime || !trackerTask) return
     const endTime = new Date()
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))
-
+    const hours = duration / 60
     try {
-      const response = await fetch("/api/time-entries", {
+      const response = await fetch(`/api/tasks/${trackerTask}/timelog`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectId: selectedProject,
-          taskId: selectedTask || undefined,
-          description,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          duration,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hours, date: startTime.toISOString(), description: trackerDescription }),
       })
-
       if (response.ok) {
-        const newEntry: TimeEntry = {
-          _id: Date.now().toString(),
-          projectId: selectedProject,
-          taskId: selectedTask || undefined,
-          description,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          duration,
-          isApproved: false,
-          createdAt: new Date().toISOString(),
-          project: projects.find((p) => p._id === selectedProject) || { title: "Unknown", color: "#gray" },
-          task: tasks.find((t) => t._id === selectedTask),
-        }
-
-        setTimeEntries([newEntry, ...timeEntries])
         setIsTracking(false)
         setStartTime(null)
         setElapsedTime(0)
-        setDescription("")
-        setSelectedTask("")
-
-        toast({
-          title: "Time entry saved",
-          description: `Logged ${duration} minutes of work`,
-        })
+        setTrackerDescription("")
+        setTrackerTask("")
+        toast({ title: "Time entry saved", description: `Logged ${duration} minutes of work` })
+        fetchAllTimeLogs(allTasks)
+      } else {
+        toast({ title: "Error", description: "Failed to save time entry", variant: "destructive" })
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save time entry",
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: "Failed to save time entry", variant: "destructive" })
     }
   }
 
@@ -271,67 +248,35 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     const hours = Number.parseInt(manualHours) || 0
     const minutes = Number.parseInt(manualMinutes) || 0
     const totalMinutes = hours * 60 + minutes
-
-    if (!selectedProject || !description.trim() || totalMinutes <= 0) {
+    if (!manualProject || !manualTask || !manualDescription.trim() || totalMinutes <= 0) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (project, task, description, time)",
         variant: "destructive",
       })
       return
     }
-
     try {
       const now = new Date()
       const startTime = new Date(now.getTime() - totalMinutes * 60 * 1000)
-
-      const response = await fetch("/api/time-entries", {
+      const response = await fetch(`/api/tasks/${manualTask}/timelog`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectId: selectedProject,
-          taskId: selectedTask || undefined,
-          description,
-          startTime: startTime.toISOString(),
-          endTime: now.toISOString(),
-          duration: totalMinutes,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hours: totalMinutes / 60, date: startTime.toISOString(), description: manualDescription }),
       })
-
       if (response.ok) {
-        const newEntry: TimeEntry = {
-          _id: Date.now().toString(),
-          projectId: selectedProject,
-          taskId: selectedTask || undefined,
-          description,
-          startTime: startTime.toISOString(),
-          endTime: now.toISOString(),
-          duration: totalMinutes,
-          isApproved: false,
-          createdAt: new Date().toISOString(),
-          project: projects.find((p) => p._id === selectedProject) || { title: "Unknown", color: "#gray" },
-          task: tasks.find((t) => t._id === selectedTask),
-        }
-
-        setTimeEntries([newEntry, ...timeEntries])
-        setDescription("")
-        setSelectedTask("")
+        setManualDescription("")
+        setManualTask("")
+        setManualProject("")
         setManualHours("")
         setManualMinutes("")
-
-        toast({
-          title: "Manual entry added",
-          description: `Added ${totalMinutes} minutes of work`,
-        })
+        toast({ title: "Manual entry added", description: `Added ${totalMinutes} minutes of work` })
+        fetchAllTimeLogs(allTasks)
+      } else {
+        toast({ title: "Error", description: "Failed to add manual entry", variant: "destructive" })
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add manual entry",
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: "Failed to add manual entry", variant: "destructive" })
     }
   }
 
@@ -369,6 +314,32 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     const mins = minutes % 60
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
   }
+
+  // Fetch all time logs for the current user
+  const fetchAllTimeLogs = async (tasks: Task[]) => {
+    try {
+      const allLogs: TimeLog[] = []
+      for (const task of tasks) {
+        const res = await fetch(`/api/tasks/${task._id}/timelog`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.timeLogs) {
+            allLogs.push(...data.timeLogs.map((log: any) => ({ ...log, taskTitle: task.title, project: task.project })))
+          }
+        }
+      }
+      setTimeLogs(allLogs)
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to load time logs", variant: "destructive" })
+    }
+  }
+
+  // Fetch logs when tasks change
+  useEffect(() => {
+    if (allTasks.length > 0) {
+      fetchAllTimeLogs(allTasks)
+    }
+  }, [allTasks])
 
   if (isLoading) {
     return (
@@ -462,7 +433,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                 </div>
 
                 <div className="space-y-4">
-                  <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <Select value={trackerProject} onValueChange={setTrackerProject}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select project" />
                     </SelectTrigger>
@@ -478,7 +449,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                     </SelectContent>
                   </Select>
 
-                  <Select value={selectedTask} onValueChange={setSelectedTask}>
+                  <Select value={trackerTask} onValueChange={setTrackerTask}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select task (optional)" />
                     </SelectTrigger>
@@ -491,10 +462,25 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                     </SelectContent>
                   </Select>
 
+                  {trackerSubtasks.length > 0 && (
+                    <Select value={trackerSubtask} onValueChange={setTrackerSubtask}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select subtask (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trackerSubtasks.map((subtask) => (
+                          <SelectItem key={subtask._id} value={subtask._id}>
+                            {subtask.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
                   <Textarea
                     placeholder="What are you working on?"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    value={trackerDescription}
+                    onChange={(e) => setTrackerDescription(e.target.value)}
                     rows={3}
                   />
                 </div>
@@ -511,7 +497,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <Select value={manualProject} onValueChange={setManualProject}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select project" />
                     </SelectTrigger>
@@ -527,12 +513,12 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                     </SelectContent>
                   </Select>
 
-                  <Select value={selectedTask} onValueChange={setSelectedTask}>
+                  <Select value={manualTask} onValueChange={setManualTask}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select task (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {tasks.map((task) => (
+                      {manualTasks.map((task) => (
                         <SelectItem key={task._id} value={task._id}>
                           {task.title}
                         </SelectItem>
@@ -540,10 +526,25 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                     </SelectContent>
                   </Select>
 
+                  {manualSubtasks.length > 0 && (
+                    <Select value={manualSubtask} onValueChange={setManualSubtask}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select subtask (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {manualSubtasks.map((subtask) => (
+                          <SelectItem key={subtask._id} value={subtask._id}>
+                            {subtask.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
                   <Textarea
                     placeholder="Description of work done"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    value={manualDescription}
+                    onChange={(e) => setManualDescription(e.target.value)}
                     rows={3}
                   />
 
@@ -591,7 +592,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {timeEntries.length === 0 ? (
+              {timeLogs.length === 0 ? (
                 <div className="text-center py-12">
                   <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No time entries yet</h3>
@@ -599,58 +600,26 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {timeEntries.map((entry, index) => (
+                  {timeLogs.map((log, index) => (
                     <div
-                      key={entry._id}
+                      key={log._id}
                       className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors animate-fade-in"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-center space-x-4">
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: entry.project.color }}></div>
+                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: (projects.find(p => p._id === log.project)?.color || '#ccc') }}></div>
                         <div>
-                          <h4 className="font-medium text-gray-900">{entry.description}</h4>
+                          <h4 className="font-medium text-gray-900">{log.taskTitle}</h4>
                           <div className="flex items-center text-sm text-gray-500 mt-1">
-                            <span>{entry.project.title}</span>
-                            {entry.task && (
-                              <>
-                                <span className="mx-2">•</span>
-                                <span>{entry.task.title}</span>
-                              </>
-                            )}
+                            <span>{projects.find(p => p._id === log.project)?.title || 'Unknown Project'}</span>
                             <span className="mx-2">•</span>
-                            <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
+                            <span>{new Date(log.date).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
                         <div className="text-right">
-                          <p className="font-semibold text-gray-900">{formatDuration(entry.duration)}</p>
-                          <div className="flex items-center text-sm">
-                            {entry.isApproved ? (
-                              <Badge className="bg-green-100 text-green-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Approved
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-yellow-100 text-yellow-800">
-                                <XCircle className="h-3 w-3 mr-1" />
-                                Pending
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteTimeEntry(entry._id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <p className="font-semibold text-gray-900">{(log.hours * 60).toFixed(0)}m</p>
                         </div>
                       </div>
                     </div>
@@ -661,7 +630,20 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
           </Card>
         )}
 
-        {activeTab === "analytics" && <TimeAnalytics user={user} timeEntries={timeEntries} projects={projects} />}
+        {activeTab === "analytics" && (
+          <TimeAnalytics
+            user={user}
+            timeEntries={timeLogs.map((log) => ({
+              _id: log._id,
+              projectId: log.project,
+              description: log.taskTitle || '',
+              duration: log.hours * 60, // convert hours to minutes
+              createdAt: log.date,
+              project: projects.find((p) => p._id === log.project) || { title: 'Unknown', color: '#ccc' },
+            }))}
+            projects={projects}
+          />
+        )}
       </div>
     </div>
   )

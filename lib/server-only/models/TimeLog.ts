@@ -8,6 +8,7 @@ export interface TimeLog {
   userId: ObjectId
   hours: number
   date: Date
+  description?: string
   createdAt: Date
 }
 
@@ -31,5 +32,10 @@ export class TimeLogModel {
       .collection("timelogs")
       .find({ taskId: new ObjectId(taskId) })
       .toArray()) as TimeLog[]
+  }
+
+  static async find(query: any): Promise<TimeLog[]> {
+    const db = await getDatabase()
+    return (await db.collection("timelogs").find(query).toArray()) as TimeLog[]
   }
 } 

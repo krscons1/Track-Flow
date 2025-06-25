@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const data = await request.json()
-    const { hours, date } = data
+    const { hours, date, description } = data
 
     if (!hours || !date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       date: new Date(date),
       taskId: new ObjectId(params.id),
       userId: new ObjectId(user._id),
+      description: description || "",
     })
 
     const sanitizedTimeLog = {
@@ -40,6 +41,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ timeLog: sanitizedTimeLog }, { status: 201 })
   } catch (error) {
     console.error("Create time log error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const timeLogs = await TimeLogModel.find({
+      taskId: new ObjectId(params.id),
+      userId: new ObjectId(user._id),
+    })
+
+    const sanitizedTimeLogs = timeLogs.map((log) => ({
+      ...log,
+      _id: log._id?.toString(),
+      taskId: log.taskId.toString(),
+      userId: log.userId.toString(),
+    }))
+
+    return NextResponse.json({ timeLogs: sanitizedTimeLogs })
+  } catch (error) {
+    console.error("Get time logs error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 
