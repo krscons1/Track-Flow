@@ -253,10 +253,10 @@ export default function CreateTaskForm({ user, onSuccess, prefilledData }: Creat
                     : <>
                         <SelectItem value="all">All (Whole Team)</SelectItem>
                         {projectMembers.map((user) => (
-                          <SelectItem key={user._id} value={user._id}>
-                            {user.name} ({user.email})
-                          </SelectItem>
-                        ))}
+                    <SelectItem key={user._id} value={user._id}>
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
                       </>}
                 </SelectContent>
               </Select>

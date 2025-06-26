@@ -8,6 +8,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { BarChart, Bar, PieChart, Pie, Cell } from "recharts"
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table"
 
 function timeAgo(dateString: string | Date | undefined): string {
   if (!dateString) return "-"
@@ -35,6 +45,13 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
   const [deleteError, setDeleteError] = useState("")
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("")
   const deleteConfirmString = `${user?.name || user?.email || "username"}@${team.name}`
+
+  // For expanding/collapsing description in work details table
+  const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
+  const maxDescLength = 40;
+  const handleDescClick = (rowKey: string) => {
+    setExpandedRows(prev => ({ ...prev, [rowKey]: !prev[rowKey] }));
+  };
 
   const handleAction = async (requestId: string, status: "accepted" | "declined") => {
     setActionLoading(requestId + status)
@@ -175,47 +192,84 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
           ) : (
             <div className="text-center text-gray-400">No top performer yet.</div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Member Work Table */}
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Member Work Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-xs text-left">
-              <thead>
-                <tr>
-                  <th className="px-2 py-1">Member</th>
-                  <th className="px-2 py-1">Type</th>
-                  <th className="px-2 py-1">Title</th>
-                  <th className="px-2 py-1">Hours</th>
-                  <th className="px-2 py-1">Description</th>
-                  <th className="px-2 py-1">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((member: any) =>
-                  member.memberWork.length > 0 ? member.memberWork.map((work: any, idx: number) => (
-                    <tr key={member.userId + '-' + idx}>
-                      <td className="px-2 py-1 font-semibold">{member.userName}</td>
-                      <td className="px-2 py-1">{work.type}</td>
-                      <td className="px-2 py-1">{work.title}</td>
-                      <td className="px-2 py-1">{work.hours}</td>
-                      <td className="px-2 py-1">{work.description}</td>
-                      <td className="px-2 py-1">{work.date ? new Date(work.date).toISOString().replace('T', ' ').substring(0, 19) : ''}</td>
-                    </tr>
-                  )) : (
-                    <tr key={member.userId + '-none'}>
-                      <td className="px-2 py-1 font-semibold">{member.userName}</td>
-                      <td className="px-2 py-1" colSpan={5}>No work entries</td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
+          {/* Productivity Over Time Chart */}
+          <div className="mt-10">
+            <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in rounded-2xl transition-all duration-200 p-6">
+              <h3 className="text-lg font-semibold mb-2">Productivity Over Time</h3>
+              <ProductivityLineChart members={members} />
+            </Card>
+          </div>
+
+          {/* Top Performers Chart */}
+          <div className="mt-10">
+            <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in rounded-2xl transition-all duration-200 p-6">
+              <h3 className="text-lg font-semibold mb-2">Top Performers</h3>
+              <TopPerformersBarChart members={members} />
+            </Card>
+          </div>
+
+          {/* Member Work Table */}
+          <div className="mt-10">
+            <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in rounded-2xl transition-all duration-200 p-6">
+              <h3 className="text-lg font-semibold mb-4">Work Details</h3>
+              <div className="overflow-x-auto">
+                <Table className="fade-in w-full rounded-xl overflow-hidden shadow-md border-0">
+                  <TableHeader className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200 animate-fade-in">
+                    <TableRow>
+                      <TableHead className="px-4 py-3 text-gray-700 font-bold">Member</TableHead>
+                      <TableHead className="px-4 py-3 text-gray-700 font-bold">Type</TableHead>
+                      <TableHead className="px-4 py-3 text-gray-700 font-bold">Title</TableHead>
+                      <TableHead className="px-4 py-3 text-gray-700 font-bold">Hours</TableHead>
+                      <TableHead className="px-4 py-3 text-gray-700 font-bold">Description</TableHead>
+                      <TableHead className="px-4 py-3 text-gray-700 font-bold">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((member: any) =>
+                      member.memberWork.length > 0 ? member.memberWork.map((work: any, idx: number) => {
+                        const rowKey = member.userId + '-' + idx;
+                        const isLong = work.description && work.description.length > maxDescLength;
+                        const expanded = expandedRows[rowKey];
+                        const displayDesc = isLong && !expanded
+                          ? work.description.slice(0, maxDescLength) + '...'
+                          : work.description;
+                        return (
+                          <TableRow
+                            key={rowKey}
+                            className={
+                              idx % 2 === 0
+                                ? 'bg-gray-50 hover:bg-blue-50 transition-all duration-200 ease-in-out'
+                                : 'bg-white hover:bg-blue-50 transition-all duration-200 ease-in-out'
+                            }
+                          >
+                            <TableCell className="px-4 py-2 font-semibold text-gray-900">{member.userName}</TableCell>
+                            <TableCell className="px-4 py-2 text-gray-700">{work.type}</TableCell>
+                            <TableCell className="px-4 py-2 text-gray-700">{work.title}</TableCell>
+                            <TableCell className="px-4 py-2 text-blue-700 font-bold">{work.hours}</TableCell>
+                            <TableCell
+                              className={
+                                'px-4 py-2 text-gray-600 max-w-xs cursor-pointer select-none transition-all duration-200'
+                              }
+                              title={isLong ? (expanded ? 'Click to collapse' : 'Click to expand') : ''}
+                              onClick={() => isLong && handleDescClick(rowKey)}
+                            >
+                              <span>{displayDesc}</span>
+                            </TableCell>
+                            <TableCell className="px-4 py-2 text-gray-500">{work.date ? (typeof work.date === 'string' ? work.date.substring(0, 19).replace('T', ' ') : new Date(work.date).toISOString().substring(0, 19).replace('T', ' ')) : ''}</TableCell>
+                          </TableRow>
+                        );
+                      }) : (
+                        <TableRow key={member.userId + '-none'}>
+                          <TableCell className="px-4 py-2 font-semibold text-gray-900">{member.userName}</TableCell>
+                          <TableCell className="px-4 py-2 text-gray-500" colSpan={5}>No work entries</TableCell>
+                        </TableRow>
+                      )
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
           </div>
         </CardContent>
       </Card>
@@ -374,5 +428,78 @@ function LeaveTeamButton({ teamId }: { teamId: string }) {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function getLastNDates(n: number) {
+  const dates = []
+  const today = new Date()
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    dates.push(d.toISOString().substring(0, 10))
+  }
+  return dates
+}
+
+function ProductivityLineChart({ members }: { members: any[] }) {
+  // Prepare data: for each day, for each member, sum hours
+  const days = getLastNDates(7)
+  const data = days.map(date => {
+    const entry: any = { date }
+    members.forEach(member => {
+      const hours = member.memberWork
+        .filter((w: any) => {
+          if (!w.date) return false
+          const dateStr = typeof w.date === 'string' ? w.date : new Date(w.date).toISOString()
+          return dateStr.substring(0, 10) === date
+        })
+        .reduce((sum: number, w: any) => sum + (w.hours || 0), 0)
+      entry[member.userName] = hours
+    })
+    return entry
+  })
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        {members.map((member, idx) => (
+          <Line
+            key={member.userName}
+            type="monotone"
+            dataKey={member.userName}
+            stroke={["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#6366F1"][idx % 5]}
+            strokeWidth={2}
+            dot={{ r: 3 }}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+// Top Performers: Horizontal Bar Chart
+function TopPerformersBarChart({ members }: { members: any[] }) {
+  // Sort by hours worked, take top 5
+  const data = [...members]
+    .sort((a, b) => b.hoursWorked - a.hoursWorked)
+    .slice(0, 5)
+    .map((m: any) => ({ name: m.userName, Hours: m.hoursWorked, Tasks: m.tasksCompleted }))
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <BarChart data={data} layout="vertical" margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis type="number" />
+        <YAxis dataKey="name" type="category" />
+        <Tooltip />
+        <Legend />
+        <Bar dataKey="Hours" fill="#3B82F6" />
+        <Bar dataKey="Tasks" fill="#10B981" />
+      </BarChart>
+    </ResponsiveContainer>
   )
 } 

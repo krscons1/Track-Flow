@@ -773,8 +773,8 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                           onClick={() => openDeleteModal(log)}
                           className="ml-2 text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
                           title="Delete entry"
-                        >
-                          <Trash2 className="h-4 w-4" />
+                          >
+                            <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
