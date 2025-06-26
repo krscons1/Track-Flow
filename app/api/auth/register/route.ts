@@ -15,30 +15,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request format" }, { status: 400 })
     }
 
-    const { name, email, password, role } = body
+    const { name, email, password } = body
 
-    console.log("🔄 Registration attempt for:", { name, email, role })
+    console.log("🔄 Registration attempt for:", { name, email })
 
     // Validate input
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !password) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
     if (
       typeof name !== "string" ||
       typeof email !== "string" ||
-      typeof password !== "string" ||
-      typeof role !== "string"
+      typeof password !== "string"
     ) {
       return NextResponse.json({ error: "Invalid input format" }, { status: 400 })
     }
 
     if (password.length < 6) {
       return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
-    }
-
-    if (!["admin", "member"].includes(role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 })
     }
 
     if (!email.includes("@")) {
@@ -107,8 +102,17 @@ export async function POST(request: NextRequest) {
         name: trimmedName,
         email: normalizedEmail,
         password: hashedPassword,
-        role: role as "admin" | "member",
         avatar: `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face`,
+        projects: [],
+        notificationPreferences: {
+          email: true,
+          inApp: true,
+          deadlineReminders: true,
+          taskAssignments: true,
+          mentions: true,
+        },
+        lastActive: new Date(),
+        role: "member",
       })
       console.log("✅ User created successfully:", user._id)
     } catch (error) {
@@ -144,7 +148,6 @@ export async function POST(request: NextRequest) {
       token = generateToken({
         userId: user._id!.toString(),
         email: user.email,
-        role: user.role,
       })
     } catch (error) {
       console.error("❌ Token generation error:", error)
