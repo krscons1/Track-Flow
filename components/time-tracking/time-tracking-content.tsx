@@ -105,9 +105,9 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const [manualTask, setManualTask] = useState("")
   const [manualDescription, setManualDescription] = useState("")
   const [manualTasks, setManualTasks] = useState<Task[]>([])
-  const [trackerSubtasks, setTrackerSubtasks] = useState([])
+  const [trackerSubtasks, setTrackerSubtasks] = useState<{ _id: string; title: string }[]>([])
   const [trackerSubtask, setTrackerSubtask] = useState("")
-  const [manualSubtasks, setManualSubtasks] = useState([])
+  const [manualSubtasks, setManualSubtasks] = useState<{ _id: string; title: string }[]>([])
   const [manualSubtask, setManualSubtask] = useState("")
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState(null)
@@ -119,6 +119,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const [breakCount, setBreakCount] = useState(0)
   const [breaksSkipped, setBreaksSkipped] = useState(0)
   const [breakTimeAccum, setBreakTimeAccum] = useState(0)
+  const [wasBreakSkipped, setWasBreakSkipped] = useState(false)
 
   useEffect(() => {
     loadProjects()
@@ -224,7 +225,9 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   }
 
   const handlePomodoroSessionEnd = async () => {
+    if (!wasBreakSkipped) {
     setPomodoroSessionCount((c) => c + 1)
+    }
     setPomodoroMode('break')
     setElapsedTime(0)
     setBreakTimeAccum(0)
@@ -237,8 +240,16 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     setPomodoroMode('work')
     setElapsedTime(0)
     setBreakTimeAccum((b) => b + POMODORO_BREAK)
+    setWasBreakSkipped(false) // Reset after a break is taken
     // Log the break
     await logPomodoroSession('break')
+  }
+
+  const handleSkipBreak = () => {
+    setWasBreakSkipped(true)
+    setPomodoroMode('work')
+    setElapsedTime(0)
+    // Optionally log the skipped break if needed
   }
 
   const logPomodoroSession = async (type: 'work' | 'break') => {
@@ -379,7 +390,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
     }
   }
 
-  const openDeleteModal = (entry) => {
+  const openDeleteModal = (entry: any) => {
     setEntryToDelete(entry)
     setDeleteModalOpen(true)
   }
@@ -392,13 +403,13 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const confirmDeleteEntry = async () => {
     if (!entryToDelete) return
     try {
-      const response = await fetch(`/api/tasks/${entryToDelete.taskId}/timelog`, {
+      const response = await fetch(`/api/tasks/${(entryToDelete as any).taskId}/timelog`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logId: entryToDelete._id }),
+        body: JSON.stringify({ logId: (entryToDelete as any)._id }),
       })
       if (response.ok) {
-        setTimeEntries(timeEntries.filter((entry) => entry._id !== entryToDelete._id))
+        setTimeEntries(timeEntries.filter((entry) => (entry as any)._id !== (entryToDelete as any)._id))
         toast({
           title: "Entry deleted",
           description: "Time entry has been deleted",
@@ -552,6 +563,11 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                           Stop
                         </Button>
                       </>
+                    )}
+                    {pomodoroMode === 'break' && isTracking && (
+                      <Button onClick={handleSkipBreak} className="bg-yellow-600 hover:bg-yellow-700 ml-2">
+                        Skip Break
+                      </Button>
                     )}
                   </div>
                 </div>

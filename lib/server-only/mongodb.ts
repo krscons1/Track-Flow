@@ -40,50 +40,38 @@ if (typeof window !== "undefined") {
   throw new Error("MongoDB client should only be used on server side")
 }
 
-// Enhanced connection logic with retry mechanism
-async function createConnection(): Promise<MongoClient> {
-  console.log("🔄 Attempting to connect to MongoDB...")
-  console.log("Connection URI (masked):", VALIDATED_MONGODB_URI.replace(/\/\/.*@/, "//***:***@"))
+// --- Singleton logic for all environments ---
+const globalWithMongo = global as typeof globalThis & {
+  _mongoClientPromise?: Promise<MongoClient>
+}
 
-  try {
-    const client = new MongoClient(VALIDATED_MONGODB_URI, options)
-    await client.connect()
-
-    // Test the connection immediately
-    await client.db("admin").command({ ping: 1 })
-    console.log("✅ MongoDB connection successful!")
-
-    return client
-  } catch (error) {
-    console.error("❌ MongoDB connection failed:", error)
-
-    // Provide specific error messages based on error type
-    if (error instanceof Error) {
-      if (error.message.includes("ENOTFOUND")) {
-        console.error("DNS resolution failed - check your MongoDB URI hostname")
-      } else if (error.message.includes("authentication failed")) {
-        console.error("Authentication failed - check your username and password")
-      } else if (error.message.includes("timeout")) {
-        console.error("Connection timeout - check your network and MongoDB Atlas IP whitelist")
+if (!globalWithMongo._mongoClientPromise) {
+  globalWithMongo._mongoClientPromise = (async () => {
+    console.log("🔄 Attempting to connect to MongoDB...")
+    console.log("Connection URI (masked):", VALIDATED_MONGODB_URI.replace(/\/\/.*@/, "//***:***@"))
+    try {
+      const client = new MongoClient(VALIDATED_MONGODB_URI, options)
+      await client.connect()
+      await client.db("admin").command({ ping: 1 })
+      console.log("✅ MongoDB connection successful!")
+      return client
+    } catch (error) {
+      console.error("❌ MongoDB connection failed:", error)
+      if (error instanceof Error) {
+        if (error.message.includes("ENOTFOUND")) {
+          console.error("DNS resolution failed - check your MongoDB URI hostname")
+        } else if (error.message.includes("authentication failed")) {
+          console.error("Authentication failed - check your username and password")
+        } else if (error.message.includes("timeout")) {
+          console.error("Connection timeout - check your network and MongoDB Atlas IP whitelist")
+        }
       }
+      throw error
     }
-
-    throw error
-  }
+  })()
 }
-
-if (process.env.NODE_ENV === "development") {
-  const globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>
-  }
-
-  if (!globalWithMongo._mongoClientPromise) {
-    globalWithMongo._mongoClientPromise = createConnection()
-  }
-  clientPromise = globalWithMongo._mongoClientPromise
-} else {
-  clientPromise = createConnection()
-}
+clientPromise = globalWithMongo._mongoClientPromise
+// --- End singleton logic ---
 
 export async function getDatabase(): Promise<Db> {
   try {
