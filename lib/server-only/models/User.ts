@@ -18,6 +18,8 @@ export interface User {
     mentions: boolean
   }
   lastActive: Date
+  lastLogin?: Date
+  lastLogout?: Date
   createdAt: Date
   updatedAt: Date
 }

@@ -82,6 +82,7 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
   const [isCreatingTeam, setIsCreatingTeam] = useState(false)
   const [myTeams, setMyTeams] = useState<any[]>([])
   const [teamDescription, setTeamDescription] = useState("")
+  const [memberStats, setMemberStats] = useState<{ [userId: string]: { tasks: number; hours: number } }>({})
   const { toast } = useToast()
   const router = useRouter()
 
@@ -162,6 +163,47 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
     }
     fetchMyTeams()
   }, [])
+
+  useEffect(() => {
+    if (!projectId || teamMembers.length === 0) return;
+    // Fetch hours worked per member
+    const fetchStats = async () => {
+      try {
+        const [hoursRes, tasksRes] = await Promise.all([
+          fetch(`/api/reports/project-contribution/${projectId}`),
+          fetch(`/api/tasks?projectId=${projectId}`),
+        ])
+        const hoursData = hoursRes.ok ? await hoursRes.json() : { contributions: [] }
+        const tasksData = tasksRes.ok ? await tasksRes.json() : { tasks: [] }
+        // Map userId to hours
+        const hoursMap: { [userId: string]: number } = {}
+        for (const c of hoursData.contributions || []) {
+          hoursMap[c.userId] = c.totalHours
+        }
+        // Count completed tasks per member (including 'all')
+        const tasks = tasksData.tasks || []
+        const taskCountMap: { [userId: string]: number } = {}
+        for (const member of teamMembers) {
+          // Count tasks assigned to this member or to 'all' and completed
+          taskCountMap[member._id] = tasks.filter(
+            (t: any) => t.status === 'completed' && (t.assignee === member._id || t.assignee === 'all')
+          ).length
+        }
+        // Merge
+        const stats: { [userId: string]: { tasks: number; hours: number } } = {}
+        for (const member of teamMembers) {
+          stats[member._id] = {
+            tasks: taskCountMap[member._id] || 0,
+            hours: hoursMap[member._id] || 0,
+          }
+        }
+        setMemberStats(stats)
+      } catch (e) {
+        setMemberStats({})
+      }
+    }
+    fetchStats()
+  }, [projectId, teamMembers])
 
   const loadTeamData = async () => {
     setIsLoading(true)

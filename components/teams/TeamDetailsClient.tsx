@@ -25,7 +25,7 @@ function timeAgo(dateString: string | Date | undefined): string {
   return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`
 }
 
-export default function TeamDetailsClient({ team, project, members, isLeader, leaveRequests, user }: any) {
+export default function TeamDetailsClient({ team, project, members, isLeader, leaveRequests, user, analytics, subtasks }: any) {
   const [requests, setRequests] = useState(leaveRequests || [])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [error, setError] = useState("")
@@ -95,6 +95,7 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
                 key={member._id?.toString()}
                 className="rounded-2xl border bg-white/90 shadow-md hover:shadow-xl transition-all duration-200 p-6 flex flex-col gap-2 min-w-[260px]"
               >
+                <div className="text-xs text-gray-400 mb-1">UserId: {member.userId}</div>
                 <div className="flex items-center gap-4 mb-2">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-2xl shadow overflow-hidden">
                     {member.userAvatar ? (
@@ -115,8 +116,13 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
                 </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   <Badge className={member.role === "team_leader" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-700"}>{member.role === "team_leader" ? "Team Leader" : "Member"}</Badge>
-                  <Badge className={member.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}>{member.status}</Badge>
-                  <Badge className="bg-gray-100 text-gray-700">Last Active: {timeAgo(member.lastActive)}</Badge>
+                  {user && member.userId?.toString() === user._id?.toString() ? (
+                    <Badge className="bg-green-100 text-green-800">Active now</Badge>
+                  ) : (
+                    <Badge className="bg-gray-100 text-gray-700">
+                      Last Active: {member.lastLogout ? timeAgo(member.lastLogout) : member.lastLogin ? timeAgo(member.lastLogin) : "-"}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex justify-between items-center border-t pt-3 mt-2 text-center">
                   <div>
@@ -126,6 +132,10 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
                   <div>
                     <div className="font-bold text-lg">{member.hoursWorked}h</div>
                     <div className="text-xs text-gray-500">Hours</div>
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg">{member.subtasksCompleted}</div>
+                    <div className="text-xs text-gray-500">Subtasks</div>
                   </div>
                 </div>
               </div>
@@ -140,7 +150,73 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
           <CardTitle>Team Analytics</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center text-gray-500 py-8">Analytics and charts coming soon...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-center mb-6">
+            <div className="p-4">
+              <div className="text-3xl font-bold text-blue-700">{analytics?.totalTasks ?? 0}</div>
+              <div className="text-gray-500 text-sm">Total Tasks</div>
+            </div>
+            <div className="p-4">
+              <div className="text-3xl font-bold text-green-700">{analytics?.totalCompletedTasks ?? 0}</div>
+              <div className="text-gray-500 text-sm">Completed Tasks</div>
+            </div>
+            <div className="p-4">
+              <div className="text-3xl font-bold text-purple-700">{analytics?.totalHours ?? 0}h</div>
+              <div className="text-gray-500 text-sm">Total Hours Worked</div>
+            </div>
+            <div className="p-4">
+              <div className="text-3xl font-bold text-yellow-700">{analytics?.avgHoursPerMember?.toFixed(1) ?? 0}h</div>
+              <div className="text-gray-500 text-sm">Avg Hours/Member</div>
+            </div>
+          </div>
+          {analytics?.topPerformer ? (
+            <div className="text-center mt-4">
+              <span className="font-semibold text-lg">Top Performer:</span> <span className="text-blue-700 font-bold">{analytics.topPerformer.name}</span> <span className="text-gray-500">({analytics.topPerformer.hours}h)</span>
+            </div>
+          ) : (
+            <div className="text-center text-gray-400">No top performer yet.</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Member Work Table */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Member Work Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs text-left">
+              <thead>
+                <tr>
+                  <th className="px-2 py-1">Member</th>
+                  <th className="px-2 py-1">Type</th>
+                  <th className="px-2 py-1">Title</th>
+                  <th className="px-2 py-1">Hours</th>
+                  <th className="px-2 py-1">Description</th>
+                  <th className="px-2 py-1">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((member: any) =>
+                  member.memberWork.length > 0 ? member.memberWork.map((work: any, idx: number) => (
+                    <tr key={member.userId + '-' + idx}>
+                      <td className="px-2 py-1 font-semibold">{member.userName}</td>
+                      <td className="px-2 py-1">{work.type}</td>
+                      <td className="px-2 py-1">{work.title}</td>
+                      <td className="px-2 py-1">{work.hours}</td>
+                      <td className="px-2 py-1">{work.description}</td>
+                      <td className="px-2 py-1">{work.date ? new Date(work.date).toISOString().replace('T', ' ').substring(0, 19) : ''}</td>
+                    </tr>
+                  )) : (
+                    <tr key={member.userId + '-none'}>
+                      <td className="px-2 py-1 font-semibold">{member.userName}</td>
+                      <td className="px-2 py-1" colSpan={5}>No work entries</td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 

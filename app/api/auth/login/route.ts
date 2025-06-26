@@ -126,6 +126,9 @@ export async function POST(request: NextRequest) {
 
     console.log("✅ Cookie set for user:", normalizedEmail)
 
+    // Set lastLogin on successful login
+    await UserModel.updateById(user._id!.toString(), { lastLogin: new Date() })
+
     // Return user data (without password)
     const { password: _, ...userWithoutPassword } = user
     return NextResponse.json({
