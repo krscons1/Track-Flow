@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef, useEffect } from "react"
 
 const FOCUS_DURATION = 25 * 60 // 25 minutes
