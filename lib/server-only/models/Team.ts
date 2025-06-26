@@ -60,6 +60,7 @@ export interface Team {
   createdBy: ObjectId
   projectId: ObjectId
   createdAt: Date
+  updatedAt: Date
 }
 
 export class TeamInvitationModel {
@@ -222,14 +223,15 @@ export class NotificationModel {
 }
 
 export const TeamModel = {
-  async create(team: Omit<Team, "_id" | "createdAt">): Promise<Team> {
+  async create(team: Omit<Team, "_id" | "createdAt" | "updatedAt">): Promise<Team> {
     const db = await getDatabase()
     const now = new Date()
     const result = await db.collection<Omit<Team, "_id">>("teams").insertOne({
       ...team,
       createdAt: now,
+      updatedAt: now,
     })
-    return { ...team, _id: result.insertedId, createdAt: now }
+    return { ...team, _id: result.insertedId, createdAt: now, updatedAt: now }
   },
 
   async findById(id: string): Promise<Team | null> {
@@ -244,5 +246,17 @@ export const TeamModel = {
       .find({ name: { $regex: query, $options: "i" } })
       .limit(10)
       .toArray()
+  },
+
+  async updateById(id: string, updates: Partial<Team>): Promise<Team | null> {
+    const db = await getDatabase()
+    const result = await db
+      .collection("teams")
+      .findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { ...updates, updatedAt: new Date() } },
+        { returnDocument: "after" },
+      )
+    return result as Team | null
   },
 }

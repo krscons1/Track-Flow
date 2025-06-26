@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import CreateTaskForm from "@/components/tasks/create-task-form"
 import CreateProjectForm from "@/components/projects/create-project-form"
+import { FaCalendarDays } from "react-icons/fa6"
 
 interface User {
   _id: string
@@ -256,8 +257,9 @@ export default function CalendarContent({ user }: CalendarContentProps) {
         {/* Header */}
         <div className="flex items-center justify-between animate-fade-in">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Calendar 📅
+            <h1 className="text-4xl font-bold flex items-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent gap-4">
+              <FaCalendarDays size={48} className="text-purple-700" />
+              Calendar
             </h1>
             <p className="text-gray-600 mt-2 text-lg">Track your deadlines and important dates</p>
             {getOverdueItems().length > 0 && (

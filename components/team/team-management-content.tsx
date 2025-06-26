@@ -20,6 +20,7 @@ import { Users, Search, Plus, Mail, Crown, Clock, UserCheck, UserX, Send, CheckC
 import { useToast } from "@/hooks/use-toast"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useRouter } from "next/navigation"
+import { AiOutlineTeam } from "react-icons/ai"
 
 interface User {
   _id: string
@@ -501,8 +502,9 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Team Management <Users className="inline h-8 w-8 ml-2 text-purple-400" />
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-4">
+            <AiOutlineTeam className="text-blue-700" size={48} />
+            Team Management
           </h1>
           <p className="text-gray-600 mt-2 text-lg">Manage your project team and collaborate effectively</p>
         </div>
@@ -686,7 +688,7 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
                       </div>
                       <div className="text-xs text-gray-500">Project: {team.projectTitle || team.projectId}</div>
                       <p className="text-sm text-muted-foreground mt-1">{team.description || "No mission statement yet."}</p>
-                      <p className="text-xs text-gray-500">Last updated: {team.lastUpdated ? team.lastUpdated : "-"}</p>
+                      <p className="text-xs text-gray-500">Last updated: {team.lastUpdated ? new Date(team.lastUpdated).toLocaleString() : "-"}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-2">

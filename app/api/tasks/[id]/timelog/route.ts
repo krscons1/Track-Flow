@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { TimeLogModel } from "@/lib/server-only/models/TimeLog"
 import { getCurrentUser } from "@/lib/server-only/auth"
 import { ObjectId } from "mongodb"
+import { ActivityLogModel } from "@/lib/server-only/models/ActivityLog"
 
 interface RouteParams {
   params: {
@@ -42,6 +43,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       taskId: timeLog.taskId.toString(),
       userId: timeLog.userId.toString(),
       subtaskId: timeLog.subtaskId?.toString(),
+    }
+
+    // Log activity for time log creation
+    const db = await import("@/lib/server-only/mongodb").then(m => m.getDatabase())
+    const membership = await db.collection("teamMembers").findOne({ userId: new ObjectId(user._id) })
+    if (membership) {
+      await ActivityLogModel.create({
+        teamId: membership.workspaceId,
+        userId: new ObjectId(user._id),
+        userName: user.name,
+        type: "timelog_created",
+        description: `Logged ${hours}h on ${date}${subtaskTitle ? ` for subtask '${subtaskTitle}'` : ''}`,
+        entityId: timeLog._id,
+      })
     }
 
     return NextResponse.json({ timeLog: sanitizedTimeLog }, { status: 201 })

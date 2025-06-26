@@ -33,6 +33,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import ActivityFeed from '@/components/dashboard/activity-feed'
+import { MdInsertChartOutlined } from "react-icons/md"
 
 interface User {
   _id: string
@@ -318,8 +319,9 @@ export default function ReportsContent({ user }: ReportsContentProps) {
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Live Analytics 📊
+          <h1 className="text-4xl font-bold flex items-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent gap-4">
+            <MdInsertChartOutlined size={48} className="text-blue-700" />
+            Live Analytics
           </h1>
           <p className="text-gray-600 mt-2 text-lg">Real-time productivity insights and performance metrics</p>
           <div className="flex items-center mt-2 text-sm text-green-600">

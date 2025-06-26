@@ -5,6 +5,7 @@ import { TaskModel } from "@/lib/server-only/models/Task"
 import { TimeLogModel } from "@/lib/server-only/models/TimeLog"
 import { getDatabase } from "@/lib/server-only/mongodb"
 import { ObjectId } from "mongodb"
+import { ActivityLogModel } from "@/lib/server-only/models/ActivityLog"
 
 interface RouteParams {
   params: {
@@ -90,6 +91,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (!success) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    // Log activity for project deletion
+    const db = await getDatabase()
+    const membership = await db.collection("teamMembers").findOne({ userId: user._id })
+    if (membership) {
+      await ActivityLogModel.create({
+        teamId: membership.workspaceId,
+        userId: user._id,
+        userName: user.name,
+        type: "project_deleted",
+        description: `Deleted project with ID ${params.id}`,
+        entityId: params.id,
+      })
     }
 
     return NextResponse.json({ message: "Project and related entries deleted successfully" })

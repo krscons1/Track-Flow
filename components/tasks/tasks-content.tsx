@@ -11,6 +11,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import TaskActionsDropdown from "./task-actions-dropdown"
+import { RiTaskFill } from "react-icons/ri"
 
 interface User {
   _id: string
@@ -223,8 +224,9 @@ export default function TasksContent({ user }: TasksContentProps) {
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            Tasks ✅
+          <h1 className="text-4xl font-bold flex items-center bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent gap-4">
+            <RiTaskFill size={48} className="text-green-700" />
+            Tasks
           </h1>
           <p className="text-gray-600 mt-2 text-lg">Manage and track all your tasks efficiently</p>
         </div>

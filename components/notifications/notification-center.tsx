@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Bell, Check, X, Clock, MessageSquare, UserPlus, CheckCircle, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { IoMdNotifications } from "react-icons/io"
 
 interface User {
   _id: string
@@ -236,14 +237,12 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in">
-        <div className="flex items-center">
-          <Bell className="h-8 w-8 text-blue-600 mr-3" />
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Notifications
-            </h1>
-            <p className="text-gray-600 mt-2 text-lg">Stay updated with your team and projects</p>
-          </div>
+        <div>
+          <h1 className="text-4xl font-bold flex items-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent gap-4">
+            <IoMdNotifications className="text-blue-600" size={48} />
+            Notifications
+          </h1>
+          <p className="text-gray-600 mt-2 text-lg">Stay updated with your team and projects</p>
         </div>
         <div className="flex items-center gap-3">
           {unreadCount > 0 && <Badge className="bg-red-100 text-red-800">{unreadCount} unread</Badge>}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, CheckCircle, FolderOpen, Edit, Plus, Timer, Coffee } from "lucide-react"
+import { Activity, CheckCircle, FolderOpen, Edit, Plus, Timer, Coffee, Trash } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
 interface ActivityItem {
@@ -30,101 +30,49 @@ interface ActivityFeedProps {
 export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFeedProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [teamId, setTeamId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadActivities()
-    // eslint-disable-next-line
-  }, [pomodoroSessions])
-
-  const loadActivities = async () => {
-    try {
-      // For now, we'll create mock activities based on actual data
-      const [projectsRes, tasksRes] = await Promise.all([fetch("/api/projects"), fetch("/api/tasks")])
-
-      const [projectsData, tasksData] = await Promise.all([projectsRes.json(), tasksRes.json()])
-
-      let mockActivities: ActivityItem[] = []
-
-      if (projectsRes.ok && tasksRes.ok) {
-        const projects = projectsData.projects || []
-        const tasks = tasksData.tasks || []
-
-        // Add project activities
-        projects.forEach((project: any, index: number) => {
-          mockActivities.push({
-            id: `project-${project._id}`,
-            type: "project_created",
-            description: `Created project "${project.title}"`,
-            timestamp: new Date(Date.now() - index * 3600000), // Stagger by hours
-            entityId: project._id,
-            entityName: project.title,
-          })
-        })
-
-        // Add task activities
-        tasks.forEach((task: any, index: number) => {
-          if (task.status === "completed") {
-            mockActivities.push({
-              id: `task-completed-${task._id}`,
-              type: "task_completed",
-              description: `Completed task "${task.title}"`,
-              timestamp: new Date(Date.now() - (index + 1) * 1800000), // Stagger by 30 minutes
-              entityId: task._id,
-              entityName: task.title,
-            })
-          } else {
-            mockActivities.push({
-              id: `task-created-${task._id}`,
-              type: "task_created",
-              description: `Created task "${task.title}"`,
-              timestamp: new Date(Date.now() - (index + 2) * 3600000),
-              entityId: task._id,
-              entityName: task.title,
-            })
-          }
-        })
+    // Fetch user's teamId
+    const fetchTeamId = async () => {
+      const res = await fetch("/api/my-teams")
+      const data = await res.json()
+      if (data.teams && data.teams.length > 0) {
+        setTeamId(data.teams[0]._id)
       }
-
-      // Add Pomodoro session activities
-      if (pomodoroSessions.length > 0) {
-        pomodoroSessions.forEach((session: any) => {
-          let desc = ""
-          let iconType = "pomodoro"
-          if (session.type === "focus" && session.status === "completed") {
-            desc = `Completed a Pomodoro on ${session.projectId ? `project` : "a task"}`
-            iconType = "pomodoro"
-          } else if (session.type === "focus" && session.status === "skipped") {
-            desc = `Skipped a Pomodoro session`
-            iconType = "pomodoro"
-          } else if (session.type === "break" && session.status === "completed") {
-            desc = `Completed a break`
-            iconType = "break"
-          } else if (session.type === "break" && session.status === "skipped") {
-            desc = `Skipped a break`
-            iconType = "break"
-          }
-          mockActivities.push({
-            id: `pomodoro-${session._id}`,
-            type: iconType,
-            description: desc,
-            timestamp: new Date(session.endTime),
-            userName: session.userName || "User",
-          })
-        })
-      }
-
-      // Sort by timestamp (newest first) and take top 10
-      const sortedActivities = mockActivities
-        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-        .slice(0, 10)
-
-      setActivities(sortedActivities)
-    } catch (error) {
-      console.error("Failed to load activities:", error)
-    } finally {
-      setIsLoading(false)
     }
-  }
+    fetchTeamId()
+  }, [])
+
+  useEffect(() => {
+    if (!teamId) return
+    let interval: NodeJS.Timeout
+    const fetchActivities = async () => {
+      setIsLoading(true)
+      try {
+        const res = await fetch(`/api/activity-logs?teamId=${teamId}`)
+        const data = await res.json()
+        setActivities(
+          (data.activities || []).map((a: any) => ({
+            id: a._id,
+            type: a.type,
+            description: a.description,
+            timestamp: new Date(a.createdAt),
+            entityId: a.entityId,
+            entityName: a.entityName,
+            userName: a.userName,
+          }))
+        )
+      } catch (e) {
+        setActivities([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchActivities()
+    interval = setInterval(fetchActivities, 10000)
+    return () => clearInterval(interval)
+  }, [teamId])
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -132,8 +80,18 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
         return <Plus className="h-4 w-4 text-blue-500" />
       case "task_completed":
         return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "subtask_created":
+        return <Plus className="h-4 w-4 text-blue-400" />
+      case "subtask_completed":
+        return <CheckCircle className="h-4 w-4 text-green-400" />
       case "project_created":
         return <FolderOpen className="h-4 w-4 text-purple-500" />
+      case "project_deleted":
+        return <Trash className="h-4 w-4 text-red-500" />
+      case "task_deleted":
+        return <Trash className="h-4 w-4 text-red-400" />
+      case "timelog_created":
+        return <Timer className="h-4 w-4 text-blue-600" />
       case "project_updated":
         return <Edit className="h-4 w-4 text-orange-500" />
       case "pomodoro":
@@ -197,7 +155,12 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
                   {getActivityIcon(activity.type)}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-900">{activity.description}</p>
+                  <p className="text-sm text-gray-900">
+                    {activity.userName && (
+                      <span className="font-medium text-blue-700">{activity.userName}</span>
+                    )}
+                    {activity.userName ? ': ' : ''}{activity.description}
+                  </p>
                   <p className="text-xs text-gray-500">{formatTimeAgo(activity.timestamp)}</p>
                 </div>
               </div>

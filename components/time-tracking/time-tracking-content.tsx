@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import TimeAnalytics from "./time-analytics"
 import Modal from '@/components/ui/Modal'
+import { LuAlarmClock } from "react-icons/lu"
 
 interface User {
   _id: string
@@ -483,8 +484,9 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Time Tracking ⏱️
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-4">
+            <LuAlarmClock className="text-purple-600" size={48} />
+            Time Tracking
           </h1>
           <p className="text-gray-600 mt-2 text-lg">Track your time and manage productivity efficiently</p>
         </div>

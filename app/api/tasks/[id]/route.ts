@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { TaskModel } from "@/lib/server-only/models/Task"
 import { getCurrentUser } from "@/lib/server-only/auth"
+import { ActivityLogModel } from "@/lib/server-only/models/ActivityLog"
+import { getDatabase } from "@/lib/server-only/mongodb"
 
 interface RouteParams {
   params: {
@@ -49,6 +51,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
+    // Log activity if task is completed
+    if (data.status === "completed") {
+      const db = await getDatabase()
+      const membership = await db.collection("teamMembers").findOne({ userId: user._id })
+      if (membership) {
+        await ActivityLogModel.create({
+          teamId: membership.workspaceId,
+          userId: user._id,
+          userName: user.name,
+          type: "task_completed",
+          description: `Completed task \"${task.title}\"`,
+          entityId: task._id,
+          entityName: task.title,
+        })
+      }
+    }
+
     const sanitizedTask = {
       ...task,
       _id: task._id?.toString(),
@@ -75,6 +94,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (!success) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+
+    const db = await getDatabase()
+    const membership = await db.collection("teamMembers").findOne({ userId: user._id })
+    if (membership) {
+      await ActivityLogModel.create({
+        teamId: membership.workspaceId,
+        userId: user._id,
+        userName: user.name,
+        type: "task_deleted",
+        description: `Deleted task with ID ${params.id}`,
+        entityId: params.id,
+      })
     }
 
     return NextResponse.json({ message: "Task deleted successfully" })

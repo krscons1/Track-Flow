@@ -35,4 +35,32 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     console.error("Delete team error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const updates = await request.json()
+    const team = await TeamModel.findById(params.teamId)
+    if (!team) {
+      return NextResponse.json({ error: "Team not found" }, { status: 404 })
+    }
+    if (team.createdBy.toString() !== user._id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    // Only allow updating certain fields
+    const allowedFields = ["name", "projectId", "description"]
+    const filteredUpdates: any = {}
+    for (const key of allowedFields) {
+      if (updates[key] !== undefined) filteredUpdates[key] = updates[key]
+    }
+    const updatedTeam = await TeamModel.updateById(params.teamId, filteredUpdates)
+    return NextResponse.json({ team: updatedTeam })
+  } catch (error) {
+    console.error("Update team error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
 } 

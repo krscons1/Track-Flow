@@ -11,6 +11,7 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import ProjectActionsDropdown from "./project-actions-dropdown"
 import { useRouter } from "next/navigation"
+import { FaFolder } from "react-icons/fa6"
 
 interface User {
   _id: string
@@ -159,8 +160,9 @@ export default function ProjectsContent({ user }: ProjectsContentProps) {
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Projects 📁
+          <h1 className="text-4xl font-bold flex items-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent gap-4">
+            <FaFolder size={48} className="text-blue-700" />
+            Projects
           </h1>
           <p className="text-gray-600 mt-2 text-lg">Manage and track all your projects in one place</p>
         </div>

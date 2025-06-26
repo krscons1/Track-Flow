@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { TaskModel } from "@/lib/server-only/models/Task"
 import { getCurrentUser } from "@/lib/server-only/auth"
 import { ObjectId } from "mongodb"
+import { ActivityLogModel } from "@/lib/server-only/models/ActivityLog"
+import { getDatabase } from "@/lib/server-only/mongodb"
 
 export async function GET() {
   try {
@@ -52,6 +54,21 @@ export async function POST(request: NextRequest) {
       actualHours: 0,
       tags: tags || [],
     })
+
+    // Log activity: find user's first team
+    const db = await getDatabase()
+    const membership = await db.collection("teamMembers").findOne({ userId: new ObjectId(user._id) })
+    if (membership) {
+      await ActivityLogModel.create({
+        teamId: membership.workspaceId,
+        userId: new ObjectId(user._id),
+        userName: user.name,
+        type: "task_created",
+        description: `Created task \"${task.title}\"`,
+        entityId: task._id,
+        entityName: task.title,
+      })
+    }
 
     return NextResponse.json({ task }, { status: 201 })
   } catch (error) {

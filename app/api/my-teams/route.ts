@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
           projectTitle,
           role: membership.role,
           memberCount,
+          lastUpdated: team?.updatedAt,
         }
       })
     )

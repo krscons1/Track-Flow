@@ -3,6 +3,8 @@ import { SubtaskModel } from "@/lib/server-only/models/Subtask"
 import { getCurrentUser } from "@/lib/server-only/auth"
 import { ObjectId } from "mongodb"
 import { TaskModel } from "@/lib/server-only/models/Task"
+import { ActivityLogModel } from "@/lib/server-only/models/ActivityLog"
+import { getDatabase } from "@/lib/server-only/mongodb"
 
 interface RouteParams {
   params: {
@@ -54,6 +56,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       assignee: new ObjectId(user._id),
     })
 
+    // Log activity: find user's first team
+    const db = await getDatabase()
+    const membership = await db.collection("teamMembers").findOne({ userId: new ObjectId(user._id) })
+    if (membership) {
+      await ActivityLogModel.create({
+        teamId: membership.workspaceId,
+        userId: new ObjectId(user._id),
+        userName: user.name,
+        type: "subtask_created",
+        description: `Created subtask \"${subtask.title}\" for task \"${params.id}\"`,
+        entityId: subtask._id,
+        entityName: subtask.title,
+      })
+    }
+
     const parentTask = await TaskModel.findById(params.id)
     if (parentTask && parentTask.status === "completed") {
       await TaskModel.updateById(params.id, { status: "in-progress" })
@@ -71,4 +88,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.error("Create subtask error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  // Forward to /api/subtasks/[id]/route.ts PATCH logic for consistency
+  // This is a thin wrapper for RESTful subtask update from the task context
+  const subtaskId = params.id
+  const subtaskApiUrl = `/api/subtasks/${subtaskId}`
+  const body = await request.text()
+  const res = await fetch(subtaskApiUrl, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body,
+  })
+  const data = await res.json()
+  return NextResponse.json(data, { status: res.status })
 } 

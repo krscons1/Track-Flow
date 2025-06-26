@@ -63,6 +63,11 @@ export default function DashboardContent({ user }: DashboardContentProps) {
       const usersResponse = await fetch("/api/users")
       const usersData = await usersResponse.json()
 
+      // Load time logs
+      const timeLogsResponse = await fetch("/api/timelogs")
+      const timeLogsData = await timeLogsResponse.json()
+      const timeLogs = timeLogsData.timeLogs || []
+
       // Calculate stats
       const projects = projectsData.projects || []
       const tasks = tasksData.tasks || []
@@ -73,15 +78,15 @@ export default function DashboardContent({ user }: DashboardContentProps) {
         activeProjects: projects.filter((p: any) => p.status === "active").length,
         totalTasks: tasks.length,
         completedTasks: tasks.filter((t: any) => t.status === "completed").length,
-        totalHours: timeEntries.reduce((total, entry) => total + entry.hours, 0),
-        thisWeekHours: timeEntries.filter((entry) => {
+        totalHours: timeLogs.reduce((total: number, entry: any) => total + (entry.hours || 0), 0),
+        thisWeekHours: timeLogs.filter((entry: any) => {
           const entryDate = new Date(entry.date)
           const startOfWeek = new Date()
           startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
           const endOfWeek = new Date(startOfWeek)
           endOfWeek.setDate(endOfWeek.getDate() + 7)
           return entryDate >= startOfWeek && entryDate < endOfWeek
-        }).reduce((total, entry) => total + entry.hours, 0),
+        }).reduce((total: number, entry: any) => total + (entry.hours || 0), 0),
       })
 
       setRecentProjects(projects.slice(0, 5))
