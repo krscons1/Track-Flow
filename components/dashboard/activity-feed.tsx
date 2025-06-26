@@ -65,10 +65,10 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
         )
       } catch (e) {
         setActivities([])
-      } finally {
-        setIsLoading(false)
-      }
+    } finally {
+      setIsLoading(false)
     }
+  }
     fetchActivities()
     interval = setInterval(fetchActivities, 10000)
     return () => clearInterval(interval)
