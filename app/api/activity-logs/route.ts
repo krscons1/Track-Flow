@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
     if (!teamId) {
       return NextResponse.json({ error: "Missing teamId" }, { status: 400 })
     }
-    const userId = searchParams.get("userId")
-    const type = searchParams.get("type")
+    const userId = searchParams.get("userId") ?? undefined
+    const type = searchParams.get("type") ?? undefined
     const activities = await ActivityLogModel.findRecentByTeam(teamId, undefined, 20, userId, type)
     return NextResponse.json({ activities })
   } catch (error) {
