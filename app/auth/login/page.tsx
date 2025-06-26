@@ -12,16 +12,21 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, Eye, EyeOff, TrendingUp, Users, CheckCircle, BarChart3 } from "lucide-react"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const [emailUser, setEmailUser] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmailUser(e.target.value.replace(/@gmail\.com/g, ""))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    const email = emailUser + "@gmail.com"
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -135,16 +140,20 @@ export default function LoginPage() {
                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                   Email address
                 </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  className="focus-ring"
-                />
+                <div className="flex items-center">
+                  <Input
+                    id="email"
+                    type="text"
+                    placeholder="Enter your email"
+                    value={emailUser}
+                    onChange={handleEmailChange}
+                    required
+                    disabled={isLoading}
+                    className="focus-ring"
+                    autoComplete="off"
+                  />
+                  <span className="ml-2 text-gray-500">@gmail.com</span>
+                </div>
               </div>
 
               <div className="space-y-2">
