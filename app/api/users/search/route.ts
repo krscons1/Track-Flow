@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getDatabase } from "@/lib/server-only/mongodb"
 import { getCurrentUser } from "@/lib/server-only/auth"
+import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
           {
             $or: [{ name: { $regex: query, $options: "i" } }, { email: { $regex: query, $options: "i" } }],
           },
-          { _id: { $ne: user._id } }, // Exclude current user
+          { _id: { $ne: new ObjectId(user._id) } }, // Exclude current user
         ],
       })
       .limit(10)

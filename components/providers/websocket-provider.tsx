@@ -30,12 +30,25 @@ interface WebSocketProviderProps {
 }
 
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
-  const { user, token } = useAuth()
+  const { user } = useAuth()
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
 
   useEffect(() => {
-    if (user && token) {
+    if (user) {
+      // Get auth token from cookies
+      const getAuthToken = () => {
+        const cookies = document.cookie.split(';');
+        const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth-token='));
+        return authCookie ? authCookie.split('=')[1] : null;
+      };
+
+      const token = getAuthToken();
+      if (!token) {
+        console.warn('No auth token found for WebSocket connection');
+        return;
+      }
+
       const socketInstance = wsClient.connect(token)
       setSocket(socketInstance)
 
@@ -55,7 +68,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         setIsConnected(false)
       }
     }
-  }, [user, token])
+  }, [user])
 
   const emit = (event: string, data: any) => {
     wsClient.emit(event, data)

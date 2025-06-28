@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
       title: `${type.charAt(0).toUpperCase() + type.slice(1)} Report`,
       dateRange: dateRange.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase()),
       user: {
-        name: session.user?.name || "Unknown User",
-        email: session.user?.email || "unknown@example.com",
+        name: session.name || "Unknown User",
+        email: session.email || "unknown@example.com",
       },
       projects: [
         {

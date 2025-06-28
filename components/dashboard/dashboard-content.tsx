@@ -17,6 +17,47 @@ interface User {
   avatar?: string
 }
 
+interface Project {
+  _id: string
+  title: string
+  description: string
+  status: string
+  startDate: string
+  dueDate: string
+  owner: string
+  members: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+interface Task {
+  _id: string
+  title: string
+  description: string
+  status: string
+  priority: string
+  project: string
+  assignee: string
+  createdBy: string
+  dueDate: string
+  estimatedHours: number
+  actualHours: number
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+interface TimeEntry {
+  _id: string
+  taskId: string
+  userId: string
+  date: string
+  hours: number
+  description: string
+  createdAt: string
+  updatedAt: string
+}
+
 interface DashboardContentProps {
   user: User
 }

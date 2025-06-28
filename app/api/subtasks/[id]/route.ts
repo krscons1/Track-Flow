@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (membership) {
         await ActivityLogModel.create({
           teamId: membership.workspaceId,
-          userId: user._id,
+          userId: new ObjectId(user._id),
           userName: user.name,
           type: "subtask_completed",
           description: `Completed subtask \"${subtask.title}\"`,

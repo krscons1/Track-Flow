@@ -24,10 +24,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all unique uploader IDs
-    const uploaderIds = [...new Set(files.map(f => f.uploadedBy).filter(Boolean))]
+    const uploaderIds = Array.from(new Set(files.map(f => f.uploadedBy).filter(Boolean)))
     // Fetch user info for all uploader IDs
     const users = await UserModel.findManyByIds(uploaderIds)
-    const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u.name || u.email]))
+    const userMap = Object.fromEntries(
+      users.flatMap((u) =>
+        u._id && typeof u._id.toString === 'function'
+          ? [[u._id.toString(), u.name || u.email]]
+          : []
+      )
+    )
 
     // Attach uploader name/email to each file
     files = files.map(f => ({

@@ -3,6 +3,7 @@ import { TaskModel } from "@/lib/server-only/models/Task"
 import { getCurrentUser } from "@/lib/server-only/auth"
 import { ActivityLogModel } from "@/lib/server-only/models/ActivityLog"
 import { getDatabase } from "@/lib/server-only/mongodb"
+import { ObjectId } from "mongodb"
 
 interface RouteParams {
   params: {
@@ -58,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (membership) {
         await ActivityLogModel.create({
           teamId: membership.workspaceId,
-          userId: user._id,
+          userId: new ObjectId(user._id),
           userName: user.name,
           type: "task_completed",
           description: `Completed task \"${task.title}\"`,
@@ -101,11 +102,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (membership) {
       await ActivityLogModel.create({
         teamId: membership.workspaceId,
-        userId: user._id,
+        userId: new ObjectId(user._id),
         userName: user.name,
         type: "task_deleted",
         description: `Deleted task with ID ${params.id}`,
-        entityId: params.id,
+        entityId: new ObjectId(params.id),
       })
     }
 

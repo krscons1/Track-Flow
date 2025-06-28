@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       await TeamMemberModel.create({
         userId: invitation.userId,
         workspaceId: invitation.workspaceId,
-        role: invitation.role,
+        role: invitation.role === "admin" ? "team_leader" : "member",
         status: "active",
       })
     }

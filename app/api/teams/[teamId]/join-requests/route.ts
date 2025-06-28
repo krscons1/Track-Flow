@@ -26,6 +26,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const joinRequest = await JoinRequestModel.create({
       teamId: new ObjectId(teamId),
       userId: new ObjectId(user._id),
+      status: "pending",
     })
     // Notify team leader
     const team = await TeamModel.findById(teamId)

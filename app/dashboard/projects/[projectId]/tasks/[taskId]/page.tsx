@@ -26,7 +26,22 @@ export default async function SubtaskManagementPage({ params }: SubtaskPageProps
       redirect("/tasks")
     }
 
-    return <SubtaskManagementContent user={user} task={task} project={project} />
+    // Sanitize task and project objects to ensure _id and ObjectId fields are strings
+    const sanitizedTask = task && {
+      ...task,
+      _id: task._id?.toString() || "",
+      project: (task.project as any)?.toString?.() || (typeof task.project === "string" ? task.project : ""),
+      dueDate: task.dueDate instanceof Date ? task.dueDate.toISOString() : task.dueDate,
+    };
+    const sanitizedProject = project && {
+      ...project,
+      _id: project._id?.toString() || "",
+      owner: (project.owner as any)?.toString?.() || (typeof project.owner === "string" ? project.owner : ""),
+      members: Array.isArray(project.members) ? project.members.map((m: any) => m?.toString?.() || m) : [],
+      startDate: project.startDate instanceof Date ? project.startDate.toISOString() : project.startDate,
+      dueDate: project.dueDate instanceof Date ? project.dueDate.toISOString() : project.dueDate,
+    };
+    return <SubtaskManagementContent user={user} task={sanitizedTask} project={sanitizedProject} />
   } catch (error) {
     console.error("Error loading task:", error)
     redirect("/tasks")

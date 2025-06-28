@@ -22,6 +22,8 @@ interface User {
   role: "admin" | "member"
   avatar?: string
   lastActive?: string
+  lastLogin?: string
+  lastLogout?: string
 }
 
 interface Project {

@@ -14,7 +14,7 @@ export default async function AdvancedReportsPage() {
   return (
     <MainLayout>
       <Suspense fallback={<div>Loading...</div>}>
-        <AdvancedReportsContent user={session.user} />
+        <AdvancedReportsContent user={session} />
       </Suspense>
     </MainLayout>
   )

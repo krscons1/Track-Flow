@@ -99,11 +99,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (membership) {
       await ActivityLogModel.create({
         teamId: membership.workspaceId,
-        userId: user._id,
+        userId: new ObjectId(user._id),
         userName: user.name,
         type: "project_deleted",
         description: `Deleted project with ID ${params.id}`,
-        entityId: params.id,
+        entityId: new ObjectId(params.id),
       })
     }
 

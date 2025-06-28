@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       email,
       userId: new ObjectId(userId),
       role,
-      invitedBy: user._id,
+      invitedBy: new ObjectId(user._id),
       workspaceId,
       status: "pending",
     })
