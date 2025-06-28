@@ -128,10 +128,8 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
       if (teamMembers.length > 0 && teamMembers.find((m) => m._id === user._id && m.teamRole === "team_leader")) {
         setIsLoadingJoinRequests(true)
         try {
-          // Assume the first team is the current team
-          const myTeam = teamMembers[0].workspaceId || teamMembers[0].teamId
-          if (!myTeam) return
-          const response = await fetch(`/api/teams/${myTeam}/join-requests`)
+          // Use projectId as the team identifier since we're in a project context
+          const response = await fetch(`/api/teams/${projectId}/join-requests`)
           const data = await response.json()
           if (response.ok) setTeamJoinRequests(data.joinRequests || [])
         } catch {}
@@ -139,7 +137,7 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
       }
     }
     fetchTeamJoinRequests()
-  }, [teamMembers, user._id])
+  }, [teamMembers, user._id, projectId])
 
   // Fetch user projects for project selection
   useEffect(() => {

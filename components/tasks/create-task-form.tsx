@@ -24,6 +24,7 @@ interface Project {
   title: string
   color: string
   dueDate?: string
+  members?: string[] // Array of user IDs who are members of this project
 }
 
 interface CreateTaskFormProps {
@@ -138,7 +139,7 @@ export default function CreateTaskForm({ user, onSuccess, prefilledData }: Creat
   // Project due date in yyyy-mm-dd
   const projectDueDateStr = selectedProject && selectedProject.dueDate ? new Date(selectedProject.dueDate).toISOString().split('T')[0] : undefined
   // Only show users who are members of the selected project
-  const projectMembers = selectedProject && selectedProject.members ? users.filter(u => selectedProject.members.includes(u._id)) : []
+  const projectMembers = selectedProject && selectedProject.members ? users.filter(u => selectedProject.members!.includes(u._id)) : []
 
   if (isLoadingData) {
     return (

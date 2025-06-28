@@ -57,16 +57,16 @@ export default function ReportsContent({ user }: ReportsContentProps) {
     pomodoroSessions: 0,
     efficiencyRate: 0,
     tasksCompleted: 0,
-    timeTrackingData: [],
-    pomodoroData: [],
-    projectTimeData: [],
-    productivityTrends: [],
-    taskCompletionData: [],
-    donutChartData: [],
+    timeTrackingData: [] as any[],
+    pomodoroData: [] as any[],
+    projectTimeData: [] as any[],
+    productivityTrends: [] as any[],
+    taskCompletionData: [] as any[],
+    donutChartData: [] as any[],
     avgSessionLength: 0,
     breakSkipped: 0,
     focusBreakRatio: 0,
-    focusSessionsByDay: [],
+    focusSessionsByDay: [] as any[],
   })
 
   useEffect(() => {

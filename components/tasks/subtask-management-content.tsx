@@ -49,6 +49,10 @@ interface Subtask {
   }
 }
 
+interface FileManagerRef {
+  triggerUpload: () => void
+}
+
 interface SubtaskManagementContentProps {
   user: User
   task: Task
@@ -63,7 +67,7 @@ export default function SubtaskManagementContent({ user, task, project }: Subtas
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
-  const fileManagerRef = useRef(null)
+  const fileManagerRef = useRef<FileManagerRef>(null)
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
