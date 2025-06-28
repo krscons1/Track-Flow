@@ -48,6 +48,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Log activity for time log creation
     const db = await import("@/lib/server-only/mongodb").then(m => m.getDatabase())
     const membership = await db.collection("teamMembers").findOne({ userId: new ObjectId(user._id) })
+    let entityName = undefined;
+    if (subtaskTitle) {
+      entityName = subtaskTitle;
+    } else {
+      // Fetch the task title
+      const task = await db.collection("tasks").findOne({ _id: new ObjectId(params.id) });
+      entityName = task?.title;
+    }
     if (membership) {
       await ActivityLogModel.create({
         teamId: membership.workspaceId,
@@ -56,6 +64,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         type: "timelog_created",
         description: `Logged ${hours}h on ${date}${subtaskTitle ? ` for subtask '${subtaskTitle}'` : ''}`,
         entityId: timeLog._id,
+        entityName,
       })
     }
 

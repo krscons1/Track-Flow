@@ -536,7 +536,7 @@ export default function ProjectDetailContent({
                           </div>
                           <div className="flex flex-wrap gap-2 mb-2">
                             <Badge className="bg-blue-100 text-blue-700">Member</Badge>
-                            <Badge className="bg-gray-100 text-gray-700">Last Active: {member.lastActive ? formatTimeAgo(member.lastActive) : "-"}</Badge>
+                            <Badge className="bg-gray-100 text-gray-700">Last Active: {member.lastLogout ? formatTimeAgo(member.lastLogout) : member.lastLogin ? formatTimeAgo(member.lastLogin) : "-"}</Badge>
                           </div>
                         </div>
                       ))}

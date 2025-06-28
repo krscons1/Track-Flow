@@ -134,7 +134,8 @@ export default function Sidebar() {
             </div>
             {!isCollapsed && <span className="ml-3 text-xl font-bold text-gray-900">TrackFlow</span>}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex">
+          {/* Collapse button only on mobile */}
+          <Button variant="ghost" size="sm" onClick={() => setIsCollapsed(!isCollapsed)} className="flex lg:hidden">
             <Menu className="h-4 w-4" />
           </Button>
         </div>

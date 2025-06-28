@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Activity, CheckCircle, FolderOpen, Edit, Plus, Timer, Coffee, Trash } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow, format } from "date-fns"
 
 interface ActivityItem {
   id: string
@@ -46,7 +46,6 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
 
   useEffect(() => {
     if (!teamId) return
-    let interval: NodeJS.Timeout
     const fetchActivities = async () => {
       setIsLoading(true)
       try {
@@ -65,13 +64,11 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
         )
       } catch (e) {
         setActivities([])
-    } finally {
-      setIsLoading(false)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
     fetchActivities()
-    interval = setInterval(fetchActivities, 10000)
-    return () => clearInterval(interval)
   }, [teamId])
 
   const getActivityIcon = (type: string) => {
@@ -103,8 +100,39 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
     }
   }
 
-  const formatTimeAgo = (date: Date) => {
-    return formatDistanceToNow(date, { addSuffix: true })
+  // Helper to format activity message
+  const getActivityMessage = (activity: ActivityItem) => {
+    switch (activity.type) {
+      case "task_created":
+        return `${activity.userName} created task "${activity.entityName}"`;
+      case "task_completed":
+        return `${activity.userName} completed task "${activity.entityName}"`;
+      case "subtask_created":
+        return `${activity.userName} created subtask "${activity.entityName}"`;
+      case "subtask_completed":
+        return `${activity.userName} completed subtask "${activity.entityName}"`;
+      case "project_created":
+        return `${activity.userName} created project "${activity.entityName}"`;
+      case "project_deleted":
+        return `${activity.userName} deleted project "${activity.entityName}"`;
+      case "task_deleted":
+        return `${activity.userName} deleted task "${activity.entityName}"`;
+      case "timelog_created":
+        return `${activity.userName} logged time for "${activity.entityName}"`;
+      case "project_updated":
+        return `${activity.userName} updated project "${activity.entityName}"`;
+      case "pomodoro":
+        return `${activity.userName} completed a pomodoro session`;
+      case "break":
+        return `${activity.userName} took a break`;
+      default:
+        return `${activity.userName}: ${activity.description}`;
+    }
+  }
+
+  // Format time as 'June 28, 2025, 1:10 AM'
+  const formatTime = (date: Date) => {
+    return format(date, "MMMM d, yyyy, h:mm a")
   }
 
   if (isLoading) {
@@ -149,19 +177,16 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
           </div>
         ) : (
           <div className="space-y-4">
-            {activities.map((activity) => (
+            {activities.slice(0, 4).map((activity) => (
               <div key={activity.id} className="flex items-start space-x-3">
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
                   {getActivityIcon(activity.type)}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-gray-900">
-                    {activity.userName && (
-                      <span className="font-medium text-blue-700">{activity.userName}</span>
-                    )}
-                    {activity.userName ? ': ' : ''}{activity.description}
+                    {getActivityMessage(activity)}
                   </p>
-                  <p className="text-xs text-gray-500">{formatTimeAgo(activity.timestamp)}</p>
+                  <p className="text-xs text-gray-500">{formatTime(activity.timestamp)}</p>
                 </div>
               </div>
             ))}
