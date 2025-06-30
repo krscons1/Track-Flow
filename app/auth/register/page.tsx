@@ -16,7 +16,6 @@ export default function RegisterPage() {
   const [name, setName] = useState("")
   const [emailUser, setEmailUser] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState<"admin" | "member">("member")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -37,7 +36,7 @@ export default function RegisterPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password }),
       })
 
       const data = await response.json()
@@ -200,21 +199,6 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500">Password must be at least 6 characters long</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role" className="text-sm font-medium text-gray-700">
-                  Role
-                </Label>
-                <Select value={role} onValueChange={(value: "admin" | "member") => setRole(value)}>
-                  <SelectTrigger className="focus-ring">
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="member">Team Member</SelectItem>
-                    <SelectItem value="admin">Project Admin</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               <Button
