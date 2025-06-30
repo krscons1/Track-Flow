@@ -60,6 +60,7 @@ export default function TasksContent({ user }: TasksContentProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("dueDate")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [projects, setProjects] = useState<any[]>([])
   const router = useRouter()
   const { toast } = useToast()
 
@@ -72,39 +73,48 @@ export default function TasksContent({ user }: TasksContentProps) {
   }
 
   useEffect(() => {
-    loadTasks()
+    loadTasksAndProjects()
   }, [])
 
   useEffect(() => {
     filterTasks()
   }, [tasks, searchTerm, statusFilter, priorityFilter, assigneeFilter])
 
-  const loadTasks = async () => {
+  const loadTasksAndProjects = async () => {
+    setIsLoading(true)
     try {
+      // Fetch projects first
+      const projectsRes = await fetch("/api/projects")
+      const projectsData = await projectsRes.json()
+      const allProjects = projectsData.projects || []
+      setProjects(allProjects)
+
+      // Fetch tasks
       const response = await fetch("/api/tasks")
       const data = await response.json()
       if (response.ok) {
-        // Enhanced mock data with additional features
-        const enhancedTasks = (data.tasks || []).map((task: any) => ({
-          ...task,
-          project: {
-            _id: task.project,
-            title: "Sample Project",
-            color: "#3B82F6",
-          },
-          assignee: {
-            _id: task.assignee,
-            name: user.name,
-            email: user.email,
-          },
-        }))
+        // Map each task's project to the actual project object
+        const enhancedTasks = (data.tasks || []).map((task: any) => {
+          const project = allProjects.find((p: any) => p._id === (task.project?._id || task.project))
+          return {
+            ...task,
+            project: project
+              ? { _id: project._id, title: project.title, color: project.color }
+              : { _id: task.project, title: "Unknown Project", color: "#888" },
+            assignee: {
+              _id: task.assignee,
+              name: user.name,
+              email: user.email,
+            },
+          }
+        })
         setTasks(enhancedTasks)
       }
     } catch (error) {
-      console.error("Failed to load tasks:", error)
+      console.error("Failed to load tasks or projects:", error)
       toast({
         title: "Error",
-        description: "Failed to load tasks",
+        description: "Failed to load tasks or projects",
         variant: "destructive",
       })
     } finally {
@@ -408,7 +418,7 @@ export default function TasksContent({ user }: TasksContentProps) {
                     </div>
 
                     <div onClick={(e) => e.stopPropagation()}>
-                      <TaskActionsDropdown task={task} onUpdate={loadTasks} />
+                      <TaskActionsDropdown task={task} onUpdate={loadTasksAndProjects} />
                     </div>
                   </div>
                 </div>

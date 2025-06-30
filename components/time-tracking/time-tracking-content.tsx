@@ -120,6 +120,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
   const [breaksSkipped, setBreaksSkipped] = useState(0)
   const [breakTimeAccum, setBreakTimeAccum] = useState(0)
   const [wasBreakSkipped, setWasBreakSkipped] = useState(false)
+  const [allSubtasks, setAllSubtasks] = useState<any[]>([])
 
   useEffect(() => {
     loadProjects()
@@ -200,6 +201,19 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
       setManualSubtask("")
     }
   }, [manualTask])
+
+  useEffect(() => {
+    const loadSubtasks = async () => {
+      try {
+        const res = await fetch("/api/subtasks")
+        const data = await res.json()
+        setAllSubtasks(data.subtasks || [])
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to load subtasks", variant: "destructive" })
+      }
+    }
+    loadSubtasks()
+  }, [])
 
   const loadProjects = async () => {
     setIsLoading(true)
@@ -453,7 +467,7 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
           }
         }
       }
-      const sortedTimeLogs = [...allLogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      const sortedTimeLogs = [...allLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       setTimeLogs(sortedTimeLogs)
     } catch (error) {
       toast({ title: "Error", description: "Failed to load time logs", variant: "destructive" })
@@ -474,6 +488,10 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     })
   }
+
+  console.log("tasks", tasks);
+  console.log("projects", projects);
+  console.log("timeLogs", timeLogs);
 
   if (isLoading) {
     return (
@@ -764,39 +782,58 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {timeLogs.map((log, index) => (
-                    <div
-                      key={log._id}
-                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors animate-fade-in"
-                      style={{ animationDelay: `${index * 100}ms` }}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: (projects.find(p => p._id === log.project)?.color || '#ccc') }}></div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">
-                            {log.subtaskTitle || log.taskTitle}
-                          </h4>
-                          <div className="flex items-center text-sm text-gray-500 mt-1 gap-1 flex-wrap">
-                            <span>{projects.find(p => p._id === log.project)?.title || 'Unknown Project'}</span>
-                            {log.subtaskTitle && <span className="mx-1">•</span>}
-                            {log.subtaskTitle && <span>{log.taskTitle}</span>}
-                            <span className="mx-1">•</span>
-                            <span>{formatTimestamp(log.createdAt)}</span>
+                  {timeLogs.map((log, index) => {
+                    const task = allTasks.find(t => String(t._id) === String(log.taskId));
+                    const project = projects.find(p => String(p._id) === String(task?.project));
+                    const subtask = log.subtaskId ? allSubtasks.find(s => String(s._id) === String(log.subtaskId)) : null;
+                    console.log('log', log, 'task', task, 'project', project);
+                    return (
+                      <div
+                        key={log._id}
+                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors animate-fade-in"
+                        style={{ animationDelay: `${index * 100}ms` }}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: project?.color || "#ccc" }}
+                          ></div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">
+                              {subtask ? subtask.title : (task?.title || 'Unknown Task')}
+                            </h4>
+                            <div className="flex items-center text-sm text-gray-500 mt-1 gap-1 flex-wrap">
+                              {subtask ? (
+                                <>
+                                  <span>{project?.title || 'Unknown Project'}</span>
+                                  <span className="mx-1">•</span>
+                                  <span>{task?.title || 'Unknown Task'}</span>
+                                  <span className="mx-1">•</span>
+                                  <span>{formatTimestamp(log.date)}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>{project?.title || 'Unknown Project'}</span>
+                                  <span className="mx-1">•</span>
+                                  <span>{formatTimestamp(log.date)}</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-sm text-gray-700 font-semibold">{log.hours.toFixed(1)}h</span>
-                        <button
-                          onClick={() => openDeleteModal(log)}
-                          className="ml-2 text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
-                          title="Delete entry"
+                        <div className="flex items-center space-x-4">
+                          <span className="text-sm text-gray-700 font-semibold">{log.hours.toFixed(1)}h</span>
+                          <button
+                            onClick={() => openDeleteModal(log)}
+                            className="ml-2 text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+                            title="Delete entry"
                           >
                             <Trash2 className="h-4 w-4" />
-                        </button>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
@@ -808,11 +845,11 @@ export default function TimeTrackingContent({ user }: TimeTrackingContentProps) 
             user={user}
             timeEntries={timeLogs.map((log) => ({
               _id: log._id,
-              projectId: log.project,
-              description: log.taskTitle || '',
+              projectId: String(allTasks.find(t => String(t._id) === String(log.taskId))?.project || ''),
+              description: log.description || '',
               duration: log.hours * 60, // convert hours to minutes
               createdAt: log.date,
-              project: projects.find((p) => p._id === log.project) || { title: 'Unknown', color: '#ccc' },
+              project: projects.find((p) => String(p._id) === String(allTasks.find(t => String(t._id) === String(log.taskId))?.project)) || { title: 'Unknown', color: '#ccc' },
             }))}
             projects={projects}
           />

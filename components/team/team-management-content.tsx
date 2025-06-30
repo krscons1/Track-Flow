@@ -43,6 +43,7 @@ interface TeamMember {
   tasksCompleted: number
   hoursWorked: number
   status: "active" | "inactive"
+  subtasksCompleted: number
 }
 
 interface TeamInvitation {
@@ -207,16 +208,26 @@ export default function TeamManagementContent({ user, projectId }: TeamManagemen
   const loadTeamData = async () => {
     setIsLoading(true)
     try {
-      const [membersResponse, invitationsResponse] = await Promise.all([
+      const [membersResponse, invitationsResponse, subtasksResponse] = await Promise.all([
         fetch("/api/team/members"),
         fetch("/api/team/invitations"),
+        fetch("/api/subtasks"),
       ])
 
       const membersData = await membersResponse.json()
       const invitationsData = await invitationsResponse.json()
+      const subtasksData = await subtasksResponse.json()
+      const allSubtasks = subtasksData.subtasks || []
 
       if (membersResponse.ok) {
-        setTeamMembers(membersData.members || [])
+        // Enhance each member with subtasksCompleted
+        const enhancedMembers = (membersData.members || []).map((member: any) => {
+          const completedSubtasks = allSubtasks.filter(
+            (s: any) => s.assignee === member._id && s.completed
+          ).length
+          return { ...member, subtasksCompleted: completedSubtasks }
+        })
+        setTeamMembers(enhancedMembers)
       } else {
         throw new Error(membersData.error || "Failed to load team members")
       }

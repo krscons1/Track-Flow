@@ -166,6 +166,30 @@ export default function SubtaskManagementContent({ user, task, project }: Subtas
     }
   }
 
+  const deleteSubtask = async (subtaskId: string) => {
+    try {
+      const response = await fetch(`/api/subtasks/${subtaskId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setSubtasks(subtasks.filter((s) => s._id !== subtaskId));
+        toast({
+          title: "Subtask deleted",
+          description: "The subtask has been deleted.",
+        });
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete subtask");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const completedSubtasks = subtasks.filter((s) => s.completed).length
   const progressPercentage = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0
 
@@ -372,13 +396,23 @@ export default function SubtaskManagementContent({ user, task, project }: Subtas
                         </button>
                       </div>
                       <div className="flex-1">
-                        <h4
-                          className={`font-medium ${
-                            subtask.completed ? "text-green-800 line-through" : "text-gray-900"
-                          }`}
-                        >
-                          {subtask.title}
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4
+                            className={`font-medium ${
+                              subtask.completed ? "text-green-800 line-through" : "text-gray-900"
+                            }`}
+                          >
+                            {subtask.title}
+                          </h4>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="ml-2"
+                            onClick={() => deleteSubtask(subtask._id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                         {subtask.description && (
                           <p className={`text-sm mt-1 ${subtask.completed ? "text-green-600" : "text-gray-600"}`}>
                             {subtask.description}

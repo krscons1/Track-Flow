@@ -68,4 +68,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     console.error("Update subtask error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const deleted = await SubtaskModel.deleteById(params.id, user._id)
+    if (deleted) {
+      return NextResponse.json({ success: true })
+    } else {
+      return NextResponse.json({ error: "Subtask not found or not authorized" }, { status: 404 })
+    }
+  } catch (error) {
+    console.error("Delete subtask error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
 } 

@@ -1,6 +1,5 @@
 import { getDatabase } from "@/lib/server-only/mongodb"
 import { ObjectId } from "mongodb"
-import { TimeLog } from "./TimeLog"
 
 export interface TimeLog {
   _id?: ObjectId

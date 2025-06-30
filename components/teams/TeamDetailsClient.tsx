@@ -18,6 +18,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 function timeAgo(dateString: string | Date | undefined): string {
   if (!dateString) return "-"
@@ -112,15 +113,14 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
                 key={member._id?.toString()}
                 className="rounded-2xl border bg-white/90 shadow-md hover:shadow-xl transition-all duration-200 p-6 flex flex-col gap-2 min-w-[260px]"
               >
-                <div className="text-xs text-gray-400 mb-1">UserId: {member.userId}</div>
                 <div className="flex items-center gap-4 mb-2">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-2xl shadow overflow-hidden">
+                  <Avatar className="w-16 h-16">
                     {member.userAvatar ? (
-                      <img src={member.userAvatar} alt={member.userName} className="w-full h-full object-cover rounded-full" />
+                      <AvatarImage src={member.userAvatar} alt={member.userName} />
                     ) : (
-                      member.userName?.charAt(0).toUpperCase() || "U"
+                      <AvatarFallback>{member.userName?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
                     )}
-                  </div>
+                  </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-lg text-gray-900">{member.userName || member.userEmail}</span>
@@ -256,7 +256,7 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
                             >
                               <span>{displayDesc}</span>
                             </TableCell>
-                            <TableCell className="px-4 py-2 text-gray-500">{work.date ? (typeof work.date === 'string' ? work.date.substring(0, 19).replace('T', ' ') : new Date(work.date).toISOString().substring(0, 19).replace('T', ' ')) : ''}</TableCell>
+                            <TableCell className="px-4 py-2 text-gray-500">{work.date ? (typeof work.date === 'string' ? new Date(work.date).toLocaleString() : new Date(work.date).toLocaleString()) : ''}</TableCell>
                           </TableRow>
                         );
                       }) : (
@@ -306,7 +306,7 @@ export default function TeamDetailsClient({ team, project, members, isLeader, le
                       </div>
                       {req.status === "pending" && (
                         <div className="flex gap-2 mt-2 md:mt-0">
-                          <Button size="sm" variant="success" disabled={actionLoading === req._id+"accepted"} onClick={() => handleAction(req._id, "accepted")}>{actionLoading === req._id+"accepted" ? "Accepting..." : "Accept"}</Button>
+                          <Button size="sm" variant="default" disabled={actionLoading === req._id+"accepted"} onClick={() => handleAction(req._id, "accepted")}>{actionLoading === req._id+"accepted" ? "Accepting..." : "Accept"}</Button>
                           <Button size="sm" variant="destructive" disabled={actionLoading === req._id+"declined"} onClick={() => handleAction(req._id, "declined")}>{actionLoading === req._id+"declined" ? "Declining..." : "Decline"}</Button>
                         </div>
                       )}
@@ -451,8 +451,10 @@ function ProductivityLineChart({ members }: { members: any[] }) {
       const hours = member.memberWork
         .filter((w: any) => {
           if (!w.date) return false
-          const dateStr = typeof w.date === 'string' ? w.date : new Date(w.date).toISOString()
-          return dateStr.substring(0, 10) === date
+          // Use local date string for grouping
+          const dateObj = typeof w.date === 'string' ? new Date(w.date) : new Date(w.date)
+          const localDateStr = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0')
+          return localDateStr === date
         })
         .reduce((sum: number, w: any) => sum + (w.hours || 0), 0)
       entry[member.userName] = hours

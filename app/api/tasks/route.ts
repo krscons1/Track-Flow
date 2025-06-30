@@ -41,16 +41,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    if (assignee === "all") {
-      return NextResponse.json({ error: "Cannot assign 'all' as assignee. Please select a specific user." }, { status: 400 })
-    }
     const task = await TaskModel.create({
       title,
       description,
       status: status || "todo",
       priority: priority || "medium",
       project: new ObjectId(project),
-      assignee: new ObjectId(assignee),
+      assignee: assignee === "all" ? "all" : new ObjectId(assignee),
       createdBy: new ObjectId(user._id),
       dueDate: new Date(dueDate),
       estimatedHours: estimatedHours || 0,

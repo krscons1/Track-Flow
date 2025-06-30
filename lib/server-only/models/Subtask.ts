@@ -46,4 +46,17 @@ export class SubtaskModel {
       )
     return result as Subtask | null
   }
+
+  static async deleteById(id: string, userId: string): Promise<boolean> {
+    const db = await getDatabase();
+    const result = await db
+      .collection("subtasks")
+      .deleteOne({ _id: new ObjectId(id) });
+    return result.deletedCount === 1;
+  }
+
+  static async findAll(): Promise<Subtask[]> {
+    const db = await getDatabase();
+    return (await db.collection("subtasks").find({}).toArray()) as Subtask[];
+  }
 } 

@@ -1,0 +1,53 @@
+﻿
+
+StatusCode        : 200
+StatusDescription : OK
+Content           : <!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" 
+                    content="width=device-width, initial-scale=1"/><link rel="stylesheet" 
+                    href="/_next/static/css/app/layout.css?v=1751267...
+RawContent        : HTTP/1.1 200 OK
+                    Vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept-Encoding
+                    Connection: keep-alive
+                    Keep-Alive: timeout=5
+                    Transfer-Encoding: chunked
+                    Cache-Control: no-store, must-reva...
+Forms             : {}
+Headers           : {[Vary, RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept-Encoding], 
+                    [Connection, keep-alive], [Keep-Alive, timeout=5], [Transfer-Encoding, chunked]...}
+Images            : {}
+InputFields       : {@{innerHTML=; innerText=; outerHTML=<INPUT id=email class="flex h-10 w-full 
+                    rounded-md border border-input bg-background px-3 py-2 text-sm 
+                    ring-offset-background file:border-0 file:bg-transparent file:text-sm 
+                    file:font-medium placeholder:text-muted-foreground focus-visible:outline-none 
+                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+                    disabled:cursor-not-allowed disabled:opacity-50 focus-ring" autoComplete="off" 
+                    required="" placeholder="Enter your email">; outerText=; tagName=INPUT; id=email; 
+                    class=flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 
+                    text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm 
+                    file:font-medium placeholder:text-muted-foreground focus-visible:outline-none 
+                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+                    disabled:cursor-not-allowed disabled:opacity-50 focus-ring; autoComplete=off; 
+                    required=; placeholder=Enter your email}, @{innerHTML=; innerText=; 
+                    outerHTML=<INPUT id=password class="flex h-10 w-full rounded-md border border-input 
+                    bg-background px-3 py-2 text-sm ring-offset-background file:border-0 
+                    file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground 
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring 
+                    focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 
+                    focus-ring pr-10" type=password value="" required="" placeholder="Enter your 
+                    password">; outerText=; tagName=INPUT; id=password; class=flex h-10 w-full 
+                    rounded-md border border-input bg-background px-3 py-2 text-sm 
+                    ring-offset-background file:border-0 file:bg-transparent file:text-sm 
+                    file:font-medium placeholder:text-muted-foreground focus-visible:outline-none 
+                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+                    disabled:cursor-not-allowed disabled:opacity-50 focus-ring pr-10; type=password; 
+                    value=; required=; placeholder=Enter your password}}
+Links             : {@{innerHTML=Create one now; innerText=Create one now; outerHTML=<A 
+                    class="font-medium text-blue-600 hover:text-blue-500 transition-colors" 
+                    href="/auth/register">Create one now</A>; outerText=Create one now; tagName=A; 
+                    class=font-medium text-blue-600 hover:text-blue-500 transition-colors; 
+                    href=/auth/register}}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 14565
+
+
+
