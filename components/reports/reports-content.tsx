@@ -14,6 +14,7 @@ import {
   Zap,
   CheckCircle,
   Activity,
+  Coffee,
 } from "lucide-react"
 import {
   LineChart,
@@ -530,6 +531,7 @@ export default function ReportsContent({ user }: ReportsContentProps) {
         <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center text-xl font-semibold text-gray-800">
+              <Coffee className="h-5 w-5 mr-2 text-yellow-500" />
               Pomodoro Focus vs Break
             </CardTitle>
           </CardHeader>
@@ -559,16 +561,7 @@ export default function ReportsContent({ user }: ReportsContentProps) {
           </CardContent>
         </Card>
         {/* Team Activity Feed */}
-        <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl font-semibold text-gray-800">
-              Team Activity Feed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ActivityFeed user={user} pomodoroSessions={pomodoroSessions} />
-          </CardContent>
-        </Card>
+        <ActivityFeed user={user} pomodoroSessions={pomodoroSessions} />
       </div>
 
       {/* Live Productivity Trends */}

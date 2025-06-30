@@ -9,7 +9,7 @@ export interface Task {
   status: "todo" | "in-progress" | "review" | "completed"
   priority: "low" | "medium" | "high"
   project: ObjectId
-  assignee: ObjectId
+  assignee: ObjectId | string
   createdBy: ObjectId
   dueDate: Date
   estimatedHours: number

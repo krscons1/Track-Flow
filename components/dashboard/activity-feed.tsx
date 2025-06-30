@@ -137,11 +137,11 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
 
   if (isLoading) {
     return (
-      <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+      <Card className="hover-lift shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in">
         <CardHeader>
           <CardTitle className="flex items-center text-xl font-semibold text-gray-800">
             <Activity className="h-5 w-5 mr-2 text-blue-600" />
-            Recent Activity
+            Team Activity Feed
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -166,7 +166,7 @@ export default function ActivityFeed({ user, pomodoroSessions = [] }: ActivityFe
       <CardHeader>
         <CardTitle className="flex items-center text-xl font-semibold text-gray-800">
           <Activity className="h-5 w-5 mr-2 text-blue-600" />
-          Recent Activity
+          Team Activity Feed
         </CardTitle>
       </CardHeader>
       <CardContent>

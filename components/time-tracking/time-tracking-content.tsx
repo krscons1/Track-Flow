@@ -71,6 +71,9 @@ interface TimeLog {
   userId: string
   hours: number
   date: string
+  subtaskId?: string
+  subtaskTitle?: string
+  description?: string
 }
 
 interface TimeTrackingContentProps {
