@@ -188,11 +188,25 @@ export default function Sidebar() {
 
         {/* User section */}
         <div className="p-4 border-t border-gray-200">
-          {!isCollapsed && user && (
-            <div className="mb-3">
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">{user.email}</p>
-            </div>
+          {user && (
+            isCollapsed ? (
+              <div className="flex items-center justify-center mb-3">
+                <div className="group relative">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold uppercase">
+                    {user.name?.charAt(0) || "U"}
+                  </div>
+                  <div className="absolute left-10 top-1/2 -translate-y-1/2 z-50 hidden group-hover:block bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-2 text-left min-w-[160px]">
+                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-3">
+                <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+              </div>
+            )
           )}
           <Button variant="ghost" size="sm" onClick={logout} className={cn("w-full", isCollapsed && "px-2")}>
             <LogOut className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
