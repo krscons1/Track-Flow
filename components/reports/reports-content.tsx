@@ -296,6 +296,38 @@ export default function ReportsContent({ user }: ReportsContentProps) {
     })
   }
 
+  const handleDownloadPDF = async () => {
+    const jsPDF = (await import('jspdf')).default;
+    const html2canvas = (await import('html2canvas')).default;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const sectionIds = [
+      'pdf-header',
+      'pdf-summary-cards',
+      'pdf-time-tracking',
+      'pdf-focus-sessions',
+      'pdf-project-distribution',
+      'pdf-pomodoro-donut',
+      'pdf-productivity-trends',
+      'pdf-performance-insights',
+    ];
+    let firstPage = true;
+    for (let i = 0; i < sectionIds.length; i++) {
+      const section = document.getElementById(sectionIds[i]);
+      if (!section) continue;
+      const canvas = await html2canvas(section, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const imgProps = { width: canvas.width, height: canvas.height };
+      const ratio = pdfWidth / imgProps.width;
+      const imgHeight = imgProps.height * ratio;
+      if (!firstPage) pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+      firstPage = false;
+    }
+    pdf.save('live-analytics-report.pdf');
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto p-6">
@@ -331,7 +363,7 @@ export default function ReportsContent({ user }: ReportsContentProps) {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="border-2 hover:bg-gray-50 transition-all duration-200">
+          <Button variant="outline" className="border-2 hover:bg-gray-50 transition-all duration-200" onClick={handleDownloadPDF}>
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
@@ -679,6 +711,174 @@ export default function ReportsContent({ user }: ReportsContentProps) {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Hidden PDF Report Section */}
+      <div id="pdf-report" style={{ position: 'absolute', left: '-9999px', top: 0, width: '1200px', background: '#fff', padding: 24 }}>
+        <div id="pdf-header" className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold flex items-center gap-4" style={{ color: '#222' }}>
+              <MdInsertChartOutlined size={48} style={{ color: '#222' }} />
+              Live Analytics
+            </h1>
+            <p style={{ color: '#444' }}>Real-time productivity insights and performance metrics</p>
+            <div className="flex items-center mt-2 text-sm" style={{ color: '#198754' }}>
+              <div style={{ width: 8, height: 8, background: '#198754', borderRadius: 4, marginRight: 8 }}></div>
+              Live data • Updates every 30 seconds
+            </div>
+          </div>
+        </div>
+        <div id="pdf-summary-cards" className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+          <div style={{ background: '#3B82F6', color: '#fff', borderRadius: 12, padding: 16 }}>
+            <div>Total Hours</div>
+            <div style={{ fontSize: 32, fontWeight: 700 }}>{realTimeData.totalHours}h</div>
+            <div style={{ fontSize: 12 }}>This month</div>
+          </div>
+          <div style={{ background: '#10B981', color: '#fff', borderRadius: 12, padding: 16 }}>
+            <div>Focus Sessions</div>
+            <div style={{ fontSize: 32, fontWeight: 700 }}>{realTimeData.pomodoroSessions}</div>
+            <div style={{ fontSize: 12 }}>Completed this week</div>
+          </div>
+          <div style={{ background: '#8B5CF6', color: '#fff', borderRadius: 12, padding: 16 }}>
+            <div>Efficiency Rate</div>
+            <div style={{ fontSize: 32, fontWeight: 700 }}>{realTimeData.efficiencyRate}%</div>
+            <div style={{ fontSize: 12 }}>{realTimeData.efficiencyRate > 85 ? '↗ Excellent' : realTimeData.efficiencyRate > 75 ? '→ Good' : '↘ Needs improvement'}</div>
+          </div>
+          <div style={{ background: '#F59E0B', color: '#fff', borderRadius: 12, padding: 16 }}>
+            <div>Tasks Done</div>
+            <div style={{ fontSize: 32, fontWeight: 700 }}>{realTimeData.tasksCompleted}</div>
+            <div style={{ fontSize: 12 }}>This month</div>
+          </div>
+        </div>
+        <div id="pdf-time-tracking" style={{ marginTop: 32, marginBottom: 32 }}>
+          <h2 className="text-2xl font-bold mb-4" style={{ color: '#222' }}>Live Time Tracking</h2>
+          <div style={{ width: 900, marginBottom: 32 }}>
+            <ResponsiveContainer width="100%" height={350}>
+              <AreaChart data={realTimeData.timeTrackingData}>
+                <defs>
+                  <linearGradient id="colorHoursPdf" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="day" stroke="#666" />
+                <YAxis stroke="#666" />
+                <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e0e0e0", borderRadius: "12px", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }} />
+                <Legend />
+                <Area type="monotone" dataKey="hours" stroke="#3B82F6" fill="url(#colorHoursPdf)" strokeWidth={3} name="Hours Worked" />
+                <Line type="monotone" dataKey="target" stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" name="Target Hours" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div id="pdf-focus-sessions" className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div style={{ background: '#fff', borderRadius: 12, padding: 16, marginBottom: 32 }}>
+            <h3 className="text-xl font-semibold mb-2" style={{ color: '#222' }}>Focus Sessions</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={realTimeData.focusSessionsByDay || []}>
+                <XAxis dataKey="day" stroke="#666" />
+                <YAxis stroke="#666" />
+                <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e0e0e0", borderRadius: "12px", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }} />
+                <Legend />
+                <Bar dataKey="sessions" fill="#10B981" name="Total Sessions" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div id="pdf-project-distribution" className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div style={{ background: '#fff', borderRadius: 12, padding: 16, marginBottom: 32 }}>
+            <h3 className="text-xl font-semibold mb-2" style={{ color: '#222' }}>Project Time Distribution</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={realTimeData.projectTimeData || []}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={90}
+                  fill="#8884d8"
+                  dataKey="hours"
+                >
+                  {(realTimeData.projectTimeData || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e0e0e0", borderRadius: "12px", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div id="pdf-pomodoro-donut" className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div style={{ background: '#fff', borderRadius: 12, padding: 16, marginBottom: 32 }}>
+            <h3 className="text-xl font-semibold mb-2" style={{ color: '#222' }}>Pomodoro Focus vs Break</h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={realTimeData.donutChartData || []}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {(realTimeData.donutChartData || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="text-xs mt-2" style={{ color: '#444' }}>Focus vs Break Time (Pomodoro)</div>
+          </div>
+        </div>
+        <div id="pdf-productivity-trends" style={{ background: '#fff', borderRadius: 12, padding: 16, marginBottom: 32 }}>
+          <h3 className="text-xl font-semibold mb-2" style={{ color: '#222' }}>Live Productivity Trends</h3>
+          <ResponsiveContainer width="100%" height={350}>
+            <LineChart data={realTimeData.productivityTrends}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="week" stroke="#666" />
+              <YAxis stroke="#666" />
+              <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e0e0e0", borderRadius: "12px", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)" }} />
+              <Legend />
+              <Line type="monotone" dataKey="efficiency" stroke="#3B82F6" strokeWidth={3} name="Efficiency %" dot={{ fill: "#3B82F6", strokeWidth: 2, r: 5 }} />
+              <Line type="monotone" dataKey="focus" stroke="#10B981" strokeWidth={3} name="Focus %" dot={{ fill: "#10B981", strokeWidth: 2, r: 5 }} />
+              <Line type="monotone" dataKey="completion" stroke="#F59E0B" strokeWidth={3} name="Completion %" dot={{ fill: "#F59E0B", strokeWidth: 2, r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div id="pdf-performance-insights" className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div style={{ background: 'linear-gradient(to bottom right, #d1fae5, #f0fdf4)', borderRadius: 12, padding: 16 }}>
+            <div style={{ color: '#059669', fontWeight: 500 }}>Peak Performance</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#065f46' }}>
+              {realTimeData.timeTrackingData.length > 0
+                ? realTimeData.timeTrackingData.reduce((max: any, day: any) => (day.hours > max.hours ? day : max)).day
+                : "Wednesday"}
+            </div>
+            <div style={{ fontSize: 12, color: '#059669' }}>Most productive day</div>
+          </div>
+          <div style={{ background: 'linear-gradient(to bottom right, #dbeafe, #f0f9ff)', borderRadius: 12, padding: 16 }}>
+            <div style={{ color: '#2563eb', fontWeight: 500 }}>Average Focus</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#1e40af' }}>
+              {Math.round((realTimeData.totalHours / Math.max(realTimeData.pomodoroSessions, 1)) * 10) / 10}h
+            </div>
+            <div style={{ fontSize: 12, color: '#2563eb' }}>Per session</div>
+          </div>
+          <div style={{ background: 'linear-gradient(to bottom right, #ede9fe, #f5f3ff)', borderRadius: 12, padding: 16 }}>
+            <div style={{ color: '#7c3aed', fontWeight: 500 }}>Top Project</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#6d28d9' }}>
+              {realTimeData.projectTimeData.length > 0
+                ? realTimeData.projectTimeData[0].name.split(" ")[0]
+                : "TrackFlow"}
+            </div>
+            <div style={{ fontSize: 12, color: '#7c3aed' }}>Most time invested</div>
+          </div>
+        </div>
       </div>
     </div>
   )

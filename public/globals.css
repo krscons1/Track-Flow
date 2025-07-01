@@ -1,0 +1,5 @@
+#print-pdf *, #pdf-report * {
+  color: #222 !important;
+  opacity: 1 !important;
+  filter: none !important;
+} 

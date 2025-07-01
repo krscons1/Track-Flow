@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       uploadedBy: userId,
       uploadedAt: uploadedFile.uploadedAt,
       category,
+      path: uploadedFile.path,
     }
     if (projectId) fileRecord.projectId = projectId
     if (taskId) fileRecord.taskId = taskId

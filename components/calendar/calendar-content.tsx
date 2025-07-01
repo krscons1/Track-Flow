@@ -74,7 +74,7 @@ export default function CalendarContent({ user }: CalendarContentProps) {
           priority: task.priority,
           color: getPriorityColor(task.priority),
           isOverdue: new Date(task.dueDate) < new Date() && task.status !== "completed",
-          project: task.project?.title || "Unknown Project",
+          project: task.projectTitle || "Unknown Project",
         }))
 
       const projectEvents: CalendarEvent[] = projects

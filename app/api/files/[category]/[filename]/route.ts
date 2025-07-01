@@ -34,10 +34,14 @@ export async function GET(request: NextRequest, { params }: { params: { category
 
     const contentType = contentTypes[extension || ""] || "application/octet-stream"
 
+    const fileRecord = await FileModel.findByFileNameAndCategory(filename, category)
+    const originalName = fileRecord?.originalName || filename
+
     return new NextResponse(file, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=31536000",
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(originalName)}"`
       },
     })
   } catch (error) {

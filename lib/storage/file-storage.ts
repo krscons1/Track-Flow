@@ -136,6 +136,17 @@ export class FileStorageService {
       }
     }
 
+    // Accept .doc and .docx files even if sent as application/octet-stream
+    if (
+      file.type === "application/octet-stream" &&
+      category === "attachments"
+    ) {
+      const name = file.name.toLowerCase();
+      if (name.endsWith(".doc") || name.endsWith(".docx")) {
+        return { valid: true };
+      }
+    }
+
     if (!allowedTypes[category].includes(file.type)) {
       return {
         valid: false,

@@ -14,6 +14,7 @@ export interface FileRecord {
   projectId?: string
   teamId?: string
   taskId?: string
+  path: string
 }
 
 export class FileModel {

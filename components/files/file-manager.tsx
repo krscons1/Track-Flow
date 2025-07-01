@@ -23,6 +23,7 @@ interface FileItem {
   category: "avatars" | "attachments" | "reports"
   url: string
   uploaderName?: string
+  originalName?: string
 }
 
 interface FileManagerProps {
@@ -125,6 +126,7 @@ const FileManager = forwardRef(function FileManager({ projectId, teamId, taskId,
             category,
             url: uploadedFile.url,
             uploaderName: uploadedFile.uploaderName,
+            originalName: uploadedFile.originalName,
           }
 
           setFiles((prev) => [newFile, ...prev])
@@ -134,12 +136,18 @@ const FileManager = forwardRef(function FileManager({ projectId, teamId, taskId,
           })
           await fetchFiles()
         } else {
-          throw new Error("Upload failed")
+          // Show backend error message if available
+          let errorMsg = `Failed to upload ${file.name}`;
+          try {
+            const err = await response.json();
+            if (err && err.error) errorMsg = err.error;
+          } catch {}
+          throw new Error(errorMsg);
         }
       } catch (error) {
         toast({
           title: "Upload Error",
-          description: `Failed to upload ${file.name}`,
+          description: error instanceof Error ? error.message : `Failed to upload ${file.name}`,
           variant: "destructive",
         })
       } finally {
@@ -225,7 +233,7 @@ const FileManager = forwardRef(function FileManager({ projectId, teamId, taskId,
   const downloadFile = (file: FileItem) => {
     const link = document.createElement("a")
     link.href = file.url
-    link.download = file.name
+    link.download = file.originalName || file.name || file.fileName
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -328,7 +336,7 @@ const FileManager = forwardRef(function FileManager({ projectId, teamId, taskId,
               >
                 <div className="flex items-center space-x-3 w-full">
                   {getFileIcon(file.type)}
-                  <span className="font-medium text-gray-900 truncate w-full">{file.name}</span>
+                  <span className="font-medium text-gray-900 truncate w-full">{file.originalName || file.name || file.fileName}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <DropdownMenu>
@@ -444,7 +452,7 @@ const FileManager = forwardRef(function FileManager({ projectId, teamId, taskId,
                 <div className="flex items-center space-x-4">
                   {getFileIcon(file.type)}
                   <div>
-                    <p className="font-medium text-gray-900">{file.name}</p>
+                    <p className="font-medium text-gray-900">{file.originalName || file.name || file.fileName}</p>
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
                       <span>{formatFileSize(file.size)}</span>
                       <span>•</span>

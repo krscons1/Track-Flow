@@ -13,12 +13,17 @@ export async function GET() {
     }
 
     const tasks = await TaskModel.findForUser(user._id.toString())
+    // Fetch all projects for the user and map by ID
+    const { ProjectModel } = await import("@/lib/server-only/models/Project")
+    const projects = await ProjectModel.findForUser(user._id.toString())
+    const projectMap = Object.fromEntries(projects.map((p) => [p._id?.toString(), p.title]))
     const sanitizedTasks = tasks.map((task) => ({
       ...task,
       _id: task._id?.toString(),
       project: task.project.toString(),
       assignee: task.assignee.toString(),
       createdBy: task.createdBy.toString(),
+      projectTitle: projectMap[task.project.toString()] || "Unknown Project",
     }))
     return NextResponse.json({ tasks: sanitizedTasks })
   } catch (error) {
